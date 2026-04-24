@@ -19,3 +19,21 @@ Open your terminal and run:
 ```bash
 sudo apt update
 sudo apt install -y libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev
+```
+ 
+### 2. Build and Run
+
+Clone the repository and run it with cargo in release mode (for maximum performance):
+Bash
+
+```bash
+git clone [https://github.com/YOUR_USERNAME/steiner_chain.git](https://github.com/YOUR_USERNAME/steiner_chain.git)
+cd steiner_chain
+cargo run --release
+```
+
+### Technologies Used
+
+   Rust: Core systems language.
+
+   egui: Immediate mode GUI library for the interface and 2D canvas rendering.
