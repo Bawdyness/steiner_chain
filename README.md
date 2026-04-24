@@ -27,12 +27,12 @@ Clone the repository and run it with cargo in release mode (for maximum performa
 Bash
 
 ```bash
-git clone [https://github.com/YOUR_USERNAME/steiner_chain.git](https://github.com/YOUR_USERNAME/steiner_chain.git)
+git clone [https://github.com/BAWDYNESS/steiner_chain.git](https://github.com/YOUR_USERNAME/steiner_chain.git)
 cd steiner_chain
 cargo run --release
 ```
 
-### Technologies Used
+## Technologies Used
 
    Rust: Core systems language.
 
