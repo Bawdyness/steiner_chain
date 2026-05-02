@@ -72,6 +72,34 @@ class AppDrawer extends StatelessWidget {
                   Navigator.of(context).pop();
                 },
               ),
+            const Spacer(),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.info_outline),
+              title: const Text('Über'),
+              onTap: () {
+                Navigator.of(context).pop();
+                showAboutDialog(
+                  context: context,
+                  applicationName: 'Geometrie-Spielzeug',
+                  applicationVersion: '0.1.0',
+                  applicationLegalese:
+                      '© Eric Naville, 2026.\n'
+                      'Lizenz: CC BY-NC-SA 4.0\n'
+                      '(Frei für nicht-kommerzielle Nutzung)',
+                  children: [
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Quelltext und Inhalte stehen unter der Creative-'
+                      'Commons-Lizenz BY-NC-SA 4.0. Du darfst sie weiter'
+                      'geben und bearbeiten, solange du den Urheber nennst, '
+                      'sie nicht kommerziell nutzt und Bearbeitungen unter '
+                      'derselben Lizenz teilst.',
+                    ),
+                  ],
+                );
+              },
+            ),
           ],
         ),
       ),

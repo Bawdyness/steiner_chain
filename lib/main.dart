@@ -1,9 +1,18 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'tools/steiner.dart';
 import 'tools/unit_circle.dart';
 import 'widgets/app_drawer.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Eigene Lizenz (CC BY-NC-SA 4.0) zur LicenseRegistry hinzufügen, damit
+  // sie zusammen mit den Drittanbieter-Lizenzen im About-Dialog erscheint.
+  LicenseRegistry.addLicense(() async* {
+    final text = await rootBundle.loadString('LICENSE');
+    yield LicenseEntryWithLineBreaks(['Geometrie-Spielzeug'], text);
+  });
   runApp(const GeometrieSpielzeugApp());
 }
 

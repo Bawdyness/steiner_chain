@@ -1,4 +1,4 @@
-package com.example.geometrie_spielzeug
+package app.weltanschauung.geometriespielzeug
 
 import io.flutter.embedding.android.FlutterActivity
 

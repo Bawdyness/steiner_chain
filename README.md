@@ -46,6 +46,20 @@ Voraussetzungen für die Pipeline: `lyx` und `pandoc` im `PATH`. Ohne `make`-Lau
 - Im Wide-Layout liegt die Welle rechts vom Kreis und zeigt Sinus (horizontal); im schmalen Layout rutscht sie unter den Kreis und zeigt Kosinus (vertikal). Verbindungslinien führen vom Kreis-Anker zur Welle, jeweils horizontal bzw. senkrecht.
 - Sinus-Werte sind in der Akzentfarbe „Gold", Kosinus-Werte in der zweiten Akzentfarbe — die Achsenbeschriftungen am Kreis (0°/180° vs. 90°/270°) zeigen die Zugehörigkeit.
 
-## Lizenzen
+## Lizenz
 
-Quellcode dieses Projekts: noch nicht festgelegt.
+Quellcode, Theorie-Texte und Icon dieses Projekts stehen unter
+**Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International
+(CC BY-NC-SA 4.0)**. Den vollen Lizenztext findest du in der Datei
+[`LICENSE`](LICENSE) im Projekt-Root.
+
+Kurzfassung:
+
+- **Frei zum Nutzen, Teilen und Bearbeiten** für jeden.
+- **Namensnennung** des Urhebers (Eric Naville).
+- **Keine kommerzielle Nutzung** ohne separate Vereinbarung.
+- **Bearbeitungen** unter derselben Lizenz weitergeben.
+
+In der App selbst ist der Lizenztext zusätzlich über den „Über"-Eintrag
+im Drawer einsehbar, zusammen mit den Lizenzen der eingebundenen
+Open-Source-Pakete (`flutter_math_fork`, `markdown`, etc.).
