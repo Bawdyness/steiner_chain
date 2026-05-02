@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'tools/steiner.dart';
+import 'widgets/app_drawer.dart';
 
 void main() {
   runApp(const GeometrieSpielzeugApp());
@@ -19,7 +20,36 @@ class GeometrieSpielzeugApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: const SteinerPage(),
+      home: const Hub(),
+    );
+  }
+}
+
+const List<ToolEntry> _tools = [
+  ToolEntry(
+    title: 'Steiner-Kette',
+    icon: Icons.donut_large_outlined,
+    builder: SteinerPage.new,
+  ),
+];
+
+class Hub extends StatefulWidget {
+  const Hub({super.key});
+
+  @override
+  State<Hub> createState() => _HubState();
+}
+
+class _HubState extends State<Hub> {
+  int _activeIndex = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    return HubScope(
+      entries: _tools,
+      activeIndex: _activeIndex,
+      onSelect: (i) => setState(() => _activeIndex = i),
+      child: _tools[_activeIndex].builder(),
     );
   }
 }

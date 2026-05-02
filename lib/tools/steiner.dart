@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import '../theory.dart';
+import '../widgets/app_drawer.dart';
+import '../widgets/drag_handle.dart';
 
 /// Steiner-Kette: `n` Kreise tangieren zwei nicht-schneidende Begrenzungskreise.
 ///
@@ -58,6 +60,7 @@ class _SteinerPageState extends State<SteinerPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      drawer: const AppDrawer(),
       appBar: AppBar(
         title: const Text('Steiner-Kette'),
         actions: [
@@ -111,14 +114,14 @@ class _SteinerPageState extends State<SteinerPage>
     return Row(
       children: [
         SizedBox(width: controlsW, child: _buildControls()),
-        _DragHandle(
+        DragHandle(
           onDrag: (dx) => setState(() {
             _controlsWidth = (_controlsWidth + dx).clamp(260.0, maxControls);
           }),
         ),
         Expanded(child: _buildCanvas()),
         if (_theoryVisible) ...[
-          _DragHandle(
+          DragHandle(
             onDrag: (dx) => setState(() {
               _theoryWidth = (_theoryWidth - dx)
                   .clamp(320.0, constraints.maxWidth * 0.6);
@@ -344,28 +347,3 @@ class _TheoryRoute extends StatelessWidget {
     );
   }
 }
-
-/// Schmaler Vertikal-Trenner, der per Drag die linke Spaltenbreite ändert.
-class _DragHandle extends StatelessWidget {
-  const _DragHandle({required this.onDrag});
-
-  final void Function(double dx) onDrag;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = Theme.of(context).colorScheme.outlineVariant;
-    return MouseRegion(
-      cursor: SystemMouseCursors.resizeColumn,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onHorizontalDragUpdate: (details) => onDrag(details.delta.dx),
-        child: Container(
-          width: 6,
-          alignment: Alignment.center,
-          child: Container(width: 1, color: color),
-        ),
-      ),
-    );
-  }
-}
-
