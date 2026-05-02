@@ -71,6 +71,7 @@ Key load-bearing decisions:
 - **Wave display range > 2π.** The visible wave covers `_waveDisplayRange = 2.5π` so the curve runs visibly past τ. The marker, however, still wraps modular at 2π (so winding doesn't push it off-screen — it jumps back to the origin at 360°).
 - **Snap with hysteresis + winding.** Enter radius 2°, release radius 5°. `_snappedAbsDegrees` tracks the absolute snap target (e.g., 540° for π in the second revolution), so the hysteresis check uses the real winding-aware distance.
 - **Spring-back to 0.** A `Tween` from current to absolute 0, capped at 2 s, eased with `easeOutCubic`. From a large wound angle, the wave visibly rewinds through every checkpoint.
+- **Hertz auto-animation.** A continuous `Ticker` (separate from the spring-back `AnimationController`) advances the angle by `_frequencyHz · 360°/s · Δt` each frame, accumulating without bound (winding works). Activated via the side-panel `TextField` (accepts comma or dot, clamped 0–60 Hz) or preset chips (0.5/1/5/50 Hz). While animating, snap-pinning is suppressed so the pointer flows through anchors. Drag interrupts cleanly — release at non-zero Hz resumes auto-animation from the new position (no spring-back).
 
 ### Reference angle lists
 

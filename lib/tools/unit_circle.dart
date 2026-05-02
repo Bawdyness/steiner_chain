@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import '../theory.dart';
 import '../widgets/app_drawer.dart';
@@ -17,10 +18,11 @@ class UnitCirclePage extends StatefulWidget {
 }
 
 class _UnitCirclePageState extends State<UnitCirclePage>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   static const String _theoryAsset = 'assets/theory/einheitskreis.md';
   static const double _snapEnterDeg = 2.0;
   static const double _snapReleaseDeg = 5.0;
+  static const double _maxHz = 60.0;
 
   /// Aktueller Zeigerwinkel in Grad, mathematisches System (0..360).
   /// Beim Snap zeigt dieser Wert auf den Checkpoint-Winkel.
@@ -44,6 +46,14 @@ class _UnitCirclePageState extends State<UnitCirclePage>
   late final AnimationController _spring;
   Animation<double>? _springAnim;
 
+  // Hertz-Animation: wenn _frequencyHz > 0 läuft der Zeiger automatisch
+  // mit f · 360°/s. Der Ticker läuft permanent, agiert aber nur, wenn
+  // weder gerade gezogen wird noch Spring-Back aktiv ist.
+  double _frequencyHz = 0.0;
+  late final Ticker _hzTicker;
+  Duration? _hzLastTick;
+  late final TextEditingController _hzController;
+
   double _controlsWidth = 360;
   double _theoryWidth = 460;
   bool _theoryVisible = false;
@@ -62,12 +72,70 @@ class _UnitCirclePageState extends State<UnitCirclePage>
         _snappedAbsDegrees = result?.absDegrees;
       });
     });
+    _hzController = TextEditingController(text: '');
+    _hzTicker = createTicker(_onHzTick)..start();
   }
 
   @override
   void dispose() {
+    _hzTicker.dispose();
+    _hzController.dispose();
     _spring.dispose();
     super.dispose();
+  }
+
+  void _onHzTick(Duration elapsed) {
+    if (_frequencyHz <= 0 ||
+        _lastCursorDegrees != null ||
+        _spring.isAnimating) {
+      _hzLastTick = elapsed;
+      return;
+    }
+    final last = _hzLastTick;
+    _hzLastTick = elapsed;
+    if (last == null) return;
+    final dt = (elapsed - last).inMicroseconds / 1e6;
+    if (dt <= 0) return;
+    setState(() {
+      _angle = _angle + _frequencyHz * 360 * dt;
+      _freeAngle = _angle;
+      // Während Auto-Animation kein Snap-Pinning — _snapped bleibt null,
+      // damit der Zeiger ungebremst durch die Anker fließt.
+      _snapped = null;
+      _snappedAbsDegrees = null;
+    });
+  }
+
+  void _setHz(double hz) {
+    final clamped = hz.clamp(0.0, _maxHz);
+    setState(() {
+      _frequencyHz = clamped;
+      // Beim Tippen aktualisieren wir das Feld nicht (sonst Cursor-Sprung);
+      // bei Preset-Knöpfen hingegen schon.
+      _hzLastTick = null;
+      if (clamped > 0) {
+        _spring.stop();
+        _snapped = null;
+        _snappedAbsDegrees = null;
+      }
+    });
+  }
+
+  void _setHzFromText(String s) {
+    final cleaned = s.replaceAll(',', '.').trim();
+    final value = double.tryParse(cleaned);
+    if (value == null) {
+      // Leeres oder ungültiges Feld → Animation stoppen, aber Eingabe
+      // unangetastet lassen, damit der User weitertippen kann.
+      _setHz(0);
+      return;
+    }
+    _setHz(value);
+  }
+
+  void _setHzFromPreset(double hz) {
+    _hzController.text = hz == hz.roundToDouble() ? '${hz.toInt()}' : '$hz';
+    _setHz(hz);
   }
 
   void _onPanStart(Offset localPosition, SceneLayout layout) {
@@ -83,6 +151,14 @@ class _UnitCirclePageState extends State<UnitCirclePage>
 
   void _onPanEnd() {
     _lastCursorDegrees = null;
+    if (_frequencyHz > 0) {
+      // Auto-Animation übernimmt wieder ab der aktuellen Position —
+      // kein Spring-Back, kein Snap.
+      _hzLastTick = null;
+      _snapped = null;
+      _snappedAbsDegrees = null;
+      return;
+    }
     _startSpringBack();
   }
 
@@ -317,6 +393,72 @@ class _UnitCirclePageState extends State<UnitCirclePage>
     });
   }
 
+  Widget _buildHzControls(ThemeData theme) {
+    final running = _frequencyHz > 0;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Frequenz (Hz)',
+          style: theme.textTheme.labelMedium,
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _hzController,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: const InputDecoration(
+                  hintText: '0 (steht still)',
+                  suffixText: 'Hz',
+                  isDense: true,
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: _setHzFromText,
+              ),
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              tooltip: running ? 'Animation stoppen' : 'Animation läuft nicht',
+              icon: Icon(running ? Icons.stop_circle : Icons.stop_circle_outlined),
+              onPressed: running
+                  ? () {
+                      _hzController.text = '';
+                      _setHz(0);
+                    }
+                  : null,
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 6,
+          runSpacing: 4,
+          children: [
+            for (final preset in const [0.5, 1.0, 5.0, 50.0])
+              ActionChip(
+                label: Text(preset == preset.roundToDouble()
+                    ? '${preset.toInt()} Hz'
+                    : '$preset Hz'),
+                onPressed: () => _setHzFromPreset(preset),
+                visualDensity: VisualDensity.compact,
+              ),
+          ],
+        ),
+        Text(
+          'Bei 50 Hz (Wechselstrom) wird der Zeiger zum Schemen — '
+          'das Auge kann der Bewegung nicht mehr folgen.',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildDisplay() {
     final theme = Theme.of(context);
     final radians = _angle * math.pi / 180;
@@ -353,6 +495,8 @@ class _UnitCirclePageState extends State<UnitCirclePage>
               visualDensity: VisualDensity(horizontal: -2, vertical: -2),
             ),
           ),
+          const SizedBox(height: 16),
+          _buildHzControls(theme),
           const SizedBox(height: 16),
           Text('Zeiger', style: theme.textTheme.labelMedium),
           const SizedBox(height: 8),

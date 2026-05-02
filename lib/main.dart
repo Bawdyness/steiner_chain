@@ -21,15 +21,19 @@ class GeometrieSpielzeugApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dark = ThemeData(
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: const Color(0xFFFFD479),
+        brightness: Brightness.dark,
+      ),
+      useMaterial3: true,
+    );
     return MaterialApp(
       title: 'Geometrie-Spielzeug',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFFFD479),
-          brightness: Brightness.dark,
-        ),
-        useMaterial3: true,
-      ),
+      // Immer dunkel, unabhängig von Geräte-Nachtmodus.
+      themeMode: ThemeMode.dark,
+      theme: dark,
+      darkTheme: dark,
       home: const Hub(),
     );
   }
