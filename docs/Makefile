@@ -1,39 +1,40 @@
-# Pipeline für Theoriedokumente: LyX -> LaTeX -> Typst.
+# Pipeline für Theoriedokumente: LyX -> LaTeX -> Markdown.
 #
 # Voraussetzungen: lyx (>= 2.4), pandoc (>= 3.0), beide im PATH.
-# Die App lädt die erzeugten .typ-Dateien zur Laufzeit aus docs/build/
-# und rendert sie mit ihrer eingebauten Typst-Engine.
+# Output landet in ../assets/theory/, von wo Flutter die .md-Dateien
+# als Assets bündelt.
 #
 # Aufrufe:
 #   make            # alle Theoriedokumente konvertieren
 #   make steiner    # nur Steiner
-#   make clean      # build/ wegräumen
+#   make clean      # Zwischenstände wegräumen
 
 LYX     ?= lyx
 PANDOC  ?= pandoc
+ASSETS  := ../assets/theory
 SOURCES := $(wildcard *.lyx)
-TARGETS := $(patsubst %.lyx,build/%.typ,$(SOURCES))
+TARGETS := $(patsubst %.lyx,$(ASSETS)/%.md,$(SOURCES))
 
 .PHONY: all clean
 all: $(TARGETS)
 
-build:
-	mkdir -p build
+build $(ASSETS):
+	mkdir -p $@
 
 build/%.tex: %.lyx | build
 	$(LYX) --export-to latex $@ $<
 
-build/%.typ: build/%.tex
-	$(PANDOC) -f latex -t typst -o $@ $<
+$(ASSETS)/%.md: build/%.tex | $(ASSETS)
+	$(PANDOC) -f latex -t gfm -o $@ $<
 	# Pandoc-Kosmetik: Unicode-Anführung statt ASCII-Doppelkomma,
 	# Leerzeichen vor öffnendem Inline-Math (Pandoc lässt es manchmal weg).
 	sed -i \
 	  -e 's/,,/„/g' \
 	  -e 's/\([[:alpha:]]\)„/\1 „/g' \
-	  -e 's/\([^[:space:]]\)\$$\([^$$][^$$]*\)\$$/\1 $$\2$$/g' \
+	  -e 's/\([^[:space:]$$]\)\$$\([^$$][^$$]*\)\$$/\1 $$\2$$/g' \
 	  $@
 
-steiner: build/steiner.typ
+steiner: $(ASSETS)/steiner.md
 
 clean:
 	rm -rf build

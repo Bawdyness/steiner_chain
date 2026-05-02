@@ -4,48 +4,46 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Rust desktop app (`eframe`/`egui`) hosting interactive geometry tools. Each tool is a self-contained module under `src/tools/` implementing the [`Tool`] trait. UI labels and prose are German.
+Flutter app for interactive geometry exploration. Currently ships one tool (Steiner chain) with a live KaTeX formula in the controls panel and an integrated theory viewer fed by LyX-authored documents. Mobile-first — primary targets are Play Store and App Store; Linux desktop is available for development.
+
+The repo previously hosted a Rust + `eframe`/`egui` prototype that validated the math and the Typst-based formula approach. That code lives only in `git log` now (commits before the Flutter port). The Möbius/Steiner approach is unchanged; only the runtime stack moved to Dart for mobile UX and store-friendly packaging.
 
 ## Commands
 
-- `cargo run --release` — launch the app. The release profile is noticeably smoother than debug because the per-frame Möbius math + Typst formula compilation are CPU-bound.
-- `cargo check` — fast type-check.
-- `cargo run --release --example bench_formula` — measure Typst compile + render latency for the live-formula path.
-- `cargo run --release --example bench_theory` — compile + render the Steiner theory document.
-- `make -C docs` — convert all `docs/*.lyx` theory documents to `docs/build/*.typ` via LyX → LaTeX → Pandoc. Required before the in-app theory viewer can show a tool's theory. Needs `lyx` and `pandoc` in `PATH`.
-
-There are no tests.
+- `make -C docs` — convert all `docs/*.lyx` theory documents to `assets/theory/*.md` via LyX → LaTeX → Pandoc-gfm. Required before the in-app theory viewer has anything to show. Needs `lyx` and `pandoc` in `PATH`.
+- `flutter run -d linux` — launch the desktop build for development.
+- `flutter run -d <android-device>` — once Android tooling is set up (currently `flutter doctor` reports it missing).
+- `flutter analyze` / `flutter test` — static check and widget test.
+- `flutter build linux --release` / `flutter build apk` — release builds.
 
 ## Architecture
 
-Three load-bearing pieces, none of which are obvious from a single file:
+Three load-bearing pieces:
 
-### 1. The `Tool` trait (`src/tool.rs`)
+### 1. Tool page (`lib/tools/steiner.dart`)
 
-The hub (`App` in `src/main.rs`) is intentionally thin. It owns `Vec<Box<dyn Tool>>`, a tool selector, and dispatches `controls_ui` / `animate` / `draw` to the active tool. Each tool owns its own state and rendering — no shared model. To add a new tool, drop a module under `src/tools/`, implement `Tool`, and append it in `App::new()`.
+A `StatefulWidget` that owns its sliders and animation state. The drawing happens in a `CustomPainter` (`_SteinerPainter`); the controls panel and live formula are sibling widgets. There is no `Tool` abstraction yet — the second tool will tell us what abstraction is actually needed (deferred until then). Animation is driven by `SingleTickerProviderStateMixin` with delta-time accumulation, so frame rate doesn't affect rotation speed.
 
-### 2. Live formulas via Typst (`src/formula.rs`)
+The Möbius trick from the prototype is preserved verbatim: closed-form radii for the symmetric concentric chain, then **every point on every chain circle is pushed through `f(z) = (z + a) / (1 + a·z)`** (the disk automorphism). Circles in disk coordinates therefore have to be drawn as 64-point polygons via `_drawMappedCircle`, never with `canvas.drawCircle` directly, or they won't sit in the transformed space.
 
-`Formula<K>` wraps a `TypstEngine` with a single `main_file` template that takes inputs through `sys.inputs`. The tool calls `formula.show(ui, key, inputs)` per frame; re-rendering only happens when `key` changes. The cache key `K` is whatever set of values the tool considers "the formula's identity" (e.g. `usize` for `n` in Steiner). Two OTF fonts (Latin Modern Math + Roman) are bundled via `include_bytes!` from `assets/fonts/`.
+### 2. Live formula (`flutter_math_fork`)
 
-Non-obvious: Typst color literals (`"#abcdef"`) collide with Rust's `r#"..."#` raw string delimiter. All Typst templates use `r##"..."##`. Without explicit `#set text(font: "Latin Modern Roman")` and `#show math.equation: set text(font: "Latin Modern Math")` the engine errors with "no font could be found" — Typst defaults to Linux Libertine, which we don't bundle.
+The KaTeX-based renderer in the live-formula widget builds a LaTeX string with the current `n` substituted (`r_in = ...`) and re-renders on every slider change. The aligned environment splits the symbolic and numeric forms onto two lines so the formula fits in a narrow controls column.
 
-### 3. In-app theory viewer (`src/theory.rs` + `docs/`)
+### 3. Theory viewer (`lib/theory.dart` + `docs/`)
 
-Theory documents are authored in **LyX** (the user's preferred environment). The build pipeline is:
+Theory documents are authored in **LyX** (the user's preferred environment — see memory). The build pipeline is:
 
 ```
-docs/<tool>.lyx  --(lyx)-->  build/<tool>.tex  --(pandoc)-->  build/<tool>.typ
+docs/<tool>.lyx  --(lyx)-->  build/<tool>.tex  --(pandoc)-->  assets/theory/<tool>.md
 ```
 
-At runtime, `Theory::ensure_loaded` reads the `.typ` file, prepends a styling preamble (page width, dark background, font setup), compiles with the bundled Typst engine, and renders each page to an `egui::TextureHandle`. Pages are stacked in a `ScrollArea` inside a right-side panel toggled from the controls. `tool.theory_source()` returns the `.typ` path; the hub auto-shows a "Theorie anzeigen"-toggle when it's `Some`.
+`docs/Makefile` runs both steps, plus a `sed`-based cleanup for Pandoc artifacts (German low-9 quotes that come out as `,,`, missing space before opening inline-math `$`). The cleanup deliberately uses `[^[:space:]$]` rather than `[^[:space:]]` for the inline-math rule so it doesn't mangle display-math `$$...$$`.
 
-Conversion fidelity caveat: pandoc's LaTeX→Typst writer handles standard math, sections, lists, and images. Custom `\usepackage{}` magic or raw TeX won't translate cleanly — keep LyX docs to standard mechanisms (amsmath, basic structure, equations, figures).
+`TheoryView` (`lib/theory.dart`) reads the bundled asset, parses it into a small AST (`HeaderBlock`, `ParagraphBlock`, `ListBlock`, `DisplayMathBlock`, with `TextSegment`/`MathSegment` for inline math), and renders each block as Material widgets. Math goes through the same `flutter_math_fork` engine as the live formula — single visual style throughout. Inline math is embedded in `Text.rich` via `WidgetSpan(alignment: PlaceholderAlignment.middle)`.
 
-### Steiner tool specifics (`src/tools/steiner.rs`)
-
-The interesting numerical trick: the eccentric chain isn't computed directly. Closed-form radii for the symmetric concentric case (`r_in = (1 - sin(π/n)) / (1 + sin(π/n))`, etc.) are computed once, then **every point fed to the painter is pushed through the disk-automorphism `f(z) = (z + a) / (1 + a·z)`**. This Möbius transform preserves circles and tangencies, so the symmetric solution becomes a valid eccentric chain "for free" — that's Steiner's porism. Anything that wants to draw a circle in disk coordinates must go through `draw_mapped_circle`, never `painter.circle_*` directly, or it won't sit in the transformed space.
+The hub UI shows a book icon in the AppBar. On wide layouts it toggles a third resizable panel on the right; on narrow layouts it pushes a full-screen route — this is the right Mobile pattern, not a side panel.
 
 ## Memory and feedback
 
-The user works in LyX and prefers open document formats (no PDF — see `~/.claude/projects/-home-eric-steiner-chain/memory/feedback_open_formats.md`). The theory pipeline outputs `.typ` consumed by the in-app viewer, deliberately avoiding any closed delivery format.
+The user authors documentation in LyX and rejects PDF as a delivery format (see `~/.claude/projects/-home-eric-steiner-chain/memory/feedback_open_formats.md`). The pipeline accordingly outputs Markdown for in-app rendering, never PDF.

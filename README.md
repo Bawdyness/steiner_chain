@@ -1,58 +1,37 @@
 # Geometrie-Spielzeug
 
-Eine Desktop-App zum Erkunden geometrischer Konstruktionen — Schieberegler ändern, Formeln aktualisieren sich live, und der zugehörige theoretische Hintergrund lässt sich direkt im selben Fenster aufschlagen.
+Eine Flutter-App zum Erkunden geometrischer Konstruktionen — Schieberegler ändern, eine Live-Formel aktualisiert sich mit den Werten, und der zugehörige theoretische Hintergrund lässt sich direkt im selben Fenster aufschlagen.
 
 Aktuell enthalten:
 
 - **Steiner-Kette** — `n` Kreise zwischen zwei sich nicht schneidenden Begrenzungskreisen. Verschiebung des inneren Kreises erzeugt eine exzentrische Kette über eine Möbius-Transformation; Rotation demonstriert Steiner's Porism.
 
-Weitere Tools sind geplant — die App ist als Hub aufgebaut, in dem jedes Werkzeug ein eigenes Modul ist.
+Weitere Werkzeuge folgen.
 
 ## Bauen und starten
 
-Voraussetzung: Rust (stabil, mit `edition = "2024"`-Unterstützung).
+Voraussetzung: Flutter (stabil, ≥ 3.41).
 
 ```sh
-cargo run --release
+make -C docs            # Theoriedokumente konvertieren (s. unten)
+flutter run -d linux    # oder -d android, -d ios, etc.
 ```
 
-Der erste Release-Build dauert ein paar Minuten (Typst-Compiler wird mitgebaut), spätere Builds sind in Sekunden.
+Plattformen: Android und Linux-Desktop sind im Scaffold konfiguriert. iOS ist machbar (`flutter create --platforms ios .`), HarmonyOS ist ein eigenes Kapitel.
 
-## Theorie-Dokumente erzeugen
+## Theorie-Pipeline
 
-Die App zeigt die Theorie zu jedem Tool im rechten Panel an, sobald „Theorie anzeigen" aktiviert ist. Quelle der Theorie sind LyX-Dateien in `docs/`, die über eine kleine Pipeline zu Typst konvertiert werden:
+Theoriedokumente werden in **LyX** (`docs/*.lyx`) verfasst und über `make -C docs` in Markdown konvertiert (`assets/theory/*.md`), das die App als Asset bündelt. Die Pipeline läuft `lyx --export-to latex` gefolgt von `pandoc -t gfm` mit einem `sed`-Putzschritt für Pandoc-Eigenheiten.
 
-```sh
-make -C docs
-```
-
-Voraussetzungen: `lyx` und `pandoc` im `PATH`. Die Pipeline läuft `lyx --export-to latex` gefolgt von `pandoc -t typst` und legt die Ergebnisse unter `docs/build/` ab.
-
-Ohne diesen Schritt bleibt das Theorie-Panel leer (oder der Toggle erscheint gar nicht erst).
+Voraussetzungen für die Pipeline: `lyx` und `pandoc` im `PATH`. Ohne `make`-Lauf vor `flutter build` fehlt der Theorie-Inhalt — das Buch-Icon wäre dann sichtbar, das Panel aber leer.
 
 ## Bedienung
 
-Linke Seitenleiste:
-
-- Schieberegler und Optionen für das aktive Tool (in der Steiner-Kette: Anzahl Kreise, Verschiebung, Rotation)
-- Eine Live-Formel, die sich beim Ziehen am Slider aktualisiert
-- „Theorie anzeigen"-Schalter, falls ein Theoriedokument gebaut wurde
-
-Rechte Seitenleiste (optional):
-
-- Das gerenderte Theoriedokument, scrollbar, Spaltenbreite per Drag verstellbar (das Dokument wird neu gesetzt, damit der Text in die Spalte passt)
-
-Hauptbereich: die Zeichnung des aktiven Tools.
-
-## Beispiel-Benchmarks
-
-```sh
-cargo run --release --example bench_formula   # Live-Formel-Latenz
-cargo run --release --example bench_theory    # Theoriedokument-Latenz
-```
+- Schieberegler: Anzahl Kreise, Verschiebung des Innenkreises, Rotation an/aus.
+- Live-Formel unter den Slidern (KaTeX über `flutter_math_fork`): symbolische Form plus aktueller numerischer Wert für `n`.
+- Buch-Icon in der AppBar: Wide-Layout öffnet ein drittes Panel rechts; Mobile öffnet eine Vollbild-Route.
+- Drag-Handles zwischen den Panels: Spaltenbreite live verstellbar (im Wide-Layout).
 
 ## Lizenzen
 
 Quellcode dieses Projekts: noch nicht festgelegt.
-
-Mitgebündelte Schriften (Latin Modern Math, Latin Modern Roman) stehen unter der GUST Font License — siehe `assets/fonts/LICENSE` und `assets/fonts/NOTICE`.
