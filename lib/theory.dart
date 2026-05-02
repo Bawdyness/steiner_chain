@@ -8,9 +8,9 @@ import 'package:markdown/markdown.dart' as md;
 sealed class TheoryBlock {}
 
 class HeaderBlock extends TheoryBlock {
-  HeaderBlock(this.level, this.text);
+  HeaderBlock(this.level, this.segments);
   final int level;
-  final String text;
+  final List<InlineSegment> segments;
 }
 
 class ParagraphBlock extends TheoryBlock {
@@ -53,7 +53,7 @@ List<TheoryBlock> parseTheory(String source) {
       case 'h2':
       case 'h3':
         final level = int.parse(node.tag.substring(1));
-        blocks.add(HeaderBlock(level, node.textContent));
+        blocks.add(HeaderBlock(level, _splitInline(node.textContent)));
       case 'p':
         final text = node.textContent.trim();
         if (text.startsWith(r'$$') && text.endsWith(r'$$') && text.length >= 4) {
@@ -157,9 +157,9 @@ class _TheoryViewState extends State<TheoryView> {
     return switch (block) {
       HeaderBlock h => Padding(
           padding: EdgeInsets.only(top: h.level == 1 ? 18 : 14, bottom: 6),
-          child: Text(
-            h.text,
-            style: (h.level == 1
+          child: _buildInline(
+            h.segments,
+            baseStyle: (h.level == 1
                     ? theme.textTheme.headlineSmall
                     : h.level == 2
                         ? theme.textTheme.titleLarge
@@ -172,7 +172,8 @@ class _TheoryViewState extends State<TheoryView> {
         ),
       ParagraphBlock p => Padding(
           padding: const EdgeInsets.symmetric(vertical: 6),
-          child: _buildInline(p.segments, fontSize: 15),
+          child: _buildInline(p.segments,
+              baseStyle: const TextStyle(fontSize: 15, height: 1.45)),
         ),
       ListBlock l => Padding(
           padding: const EdgeInsets.symmetric(vertical: 6),
@@ -189,7 +190,10 @@ class _TheoryViewState extends State<TheoryView> {
                         padding: EdgeInsets.only(top: 6, right: 8, left: 6),
                         child: Text('•', style: TextStyle(fontSize: 15)),
                       ),
-                      Expanded(child: _buildInline(item, fontSize: 15)),
+                      Expanded(
+                        child: _buildInline(item,
+                            baseStyle: const TextStyle(fontSize: 15, height: 1.45)),
+                      ),
                     ],
                   ),
                 ),
@@ -213,10 +217,11 @@ class _TheoryViewState extends State<TheoryView> {
     };
   }
 
-  Widget _buildInline(List<InlineSegment> segments, {required double fontSize}) {
+  Widget _buildInline(List<InlineSegment> segments, {TextStyle? baseStyle}) {
+    final mathStyle = baseStyle ?? const TextStyle(fontSize: 15);
     return Text.rich(
       TextSpan(
-        style: TextStyle(fontSize: fontSize, height: 1.45),
+        style: baseStyle,
         children: [
           for (final seg in segments)
             if (seg is TextSegment)
@@ -226,7 +231,7 @@ class _TheoryViewState extends State<TheoryView> {
                 alignment: PlaceholderAlignment.middle,
                 child: Math.tex(
                   seg.latex,
-                  textStyle: TextStyle(fontSize: fontSize),
+                  textStyle: mathStyle,
                   onErrorFallback: (err) => Text(
                     seg.latex,
                     style: const TextStyle(color: Colors.redAccent),

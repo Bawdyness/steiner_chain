@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'tools/steiner.dart';
+import 'tools/unit_circle.dart';
 import 'widgets/app_drawer.dart';
 
 void main() {
@@ -30,6 +31,11 @@ const List<ToolEntry> _tools = [
     title: 'Steiner-Kette',
     icon: Icons.donut_large_outlined,
     builder: SteinerPage.new,
+  ),
+  ToolEntry(
+    title: 'Einheitskreis',
+    icon: Icons.pie_chart_outline,
+    builder: UnitCirclePage.new,
   ),
 ];
 

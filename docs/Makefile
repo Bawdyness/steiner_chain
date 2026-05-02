@@ -31,7 +31,7 @@ $(ASSETS)/%.md: build/%.tex | $(ASSETS)
 	sed -i \
 	  -e 's/,,/„/g' \
 	  -e 's/\([[:alpha:]]\)„/\1 „/g' \
-	  -e 's/\([^[:space:]$$]\)\$$\([^$$][^$$]*\)\$$/\1 $$\2$$/g' \
+	  -e 's/\([^[:space:]$$]\)\$$\([^[:space:]$$][^[:space:]$$]*\)\$$/\1 $$\2$$/g' \
 	  $@
 
 steiner: $(ASSETS)/steiner.md

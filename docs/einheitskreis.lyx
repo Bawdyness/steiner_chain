@@ -1,0 +1,338 @@
+#LyX 2.4 created this file. For more info see https://www.lyx.org/
+\lyxformat 620
+\begin_document
+\begin_header
+\save_transient_properties true
+\origin unavailable
+\textclass article
+\use_default_options true
+\maintain_unincluded_children no
+\language german
+\language_package default
+\inputencoding utf8
+\fontencoding auto
+\font_roman "default" "default"
+\font_sans "default" "default"
+\font_typewriter "default" "default"
+\font_math "auto" "auto"
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_roman_osf false
+\font_sans_osf false
+\font_typewriter_osf false
+\font_sf_scale 100 100
+\font_tt_scale 100 100
+\use_microtype false
+\use_dash_ligatures true
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\spacing single
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_package amsmath 1
+\use_package amssymb 1
+\use_package cancel 1
+\use_package esint 1
+\use_package mathdots 1
+\use_package mathtools 1
+\use_package mhchem 1
+\use_package stackrel 1
+\use_package stmaryrd 1
+\use_package undertilde 1
+\cite_engine basic
+\cite_engine_type default
+\biblio_style plain
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\justification true
+\use_refstyle 1
+\use_minted 0
+\use_lineno 0
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\is_math_indent 0
+\math_numbering_side default
+\quotes_style german
+\dynamic_quotes 0
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tablestyle default
+\tracking_changes false
+\output_changes false
+\change_bars false
+\postpone_fragile_content true
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\docbook_table_output 0
+\docbook_mathml_prefix 1
+\end_header
+
+\begin_body
+
+\begin_layout Title
+Einheitskreis
+\end_layout
+
+\begin_layout Author
+Geometrie-Spielzeug
+\end_layout
+
+\begin_layout Section
+\begin_inset Formula $\pi$
+\end_inset
+
+ und
+\begin_inset Formula $\tau$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Die Zahl
+\begin_inset Formula $\pi\approx3{,}14159$
+\end_inset
+
+ ist das Verhältnis vom Umfang eines Kreises zu seinem Durchmesser.
+ Wenn der Kreis Radius
+\begin_inset Formula $1$
+\end_inset
+
+ hat, dann ist sein Umfang
+\begin_inset Formula $2\pi$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+Genau diese
+\begin_inset Formula $2\pi$
+\end_inset
+
+ sind so wichtig, dass sie einen eigenen Namen bekommen haben:
+\begin_inset Formula $\tau:=2\pi\approx6{,}28318$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula
+\[
+\tau=2\pi
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Wenn der Zeiger im Spielzeug eine ganze Runde gedreht hat, ist genau ein
+\begin_inset Formula $\tau$
+\end_inset
+
+ zurückgelegt.
+ Eine halbe Runde ist
+\begin_inset Formula $\pi$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Section
+Der Einheitskreis als Bühne für Winkel
+\end_layout
+
+\begin_layout Standard
+Der Einheitskreis ist der Kreis mit Radius
+\begin_inset Formula $1$
+\end_inset
+
+ um den Ursprung.
+ Jeder Punkt auf seinem Rand ist eindeutig durch einen Winkel beschrieben:
+\begin_inset Formula $0$
+\end_inset
+
+ ist rechts,
+\begin_inset Formula $\pi/2$
+\end_inset
+
+ ist oben,
+\begin_inset Formula $\pi$
+\end_inset
+
+ ist links,
+\begin_inset Formula $3\pi/2$
+\end_inset
+
+ ist unten,
+\begin_inset Formula $\tau$
+\end_inset
+
+ ist wieder rechts.
+\end_layout
+
+\begin_layout Standard
+Die Koordinaten des Punktes auf dem Einheitskreis bei Winkel
+\begin_inset Formula $\theta$
+\end_inset
+
+ sind genau
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula
+\[
+\left(\cos\theta,\;\sin\theta\right).
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Das ist die Definition von Sinus und Kosinus, die alle anderen Eigenschaften
+ dieser Funktionen erklärt.
+\end_layout
+
+\begin_layout Section
+Die Standardwinkel und ihre schönen Werte
+\end_layout
+
+\begin_layout Standard
+Bei manchen Winkeln werden Sinus und Kosinus zu erkennbaren Brüchen mit Wurzeln.
+ Diese Stellen sind die Checkpoints, an denen das Spielzeug einrastet:
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $0,\;\pi/6,\;\pi/4,\;\pi/3,\;\pi/2$
+\end_inset
+
+ — und ihre Spiegelbilder im Rest des Kreises.
+\end_layout
+
+\begin_layout Standard
+Beispiel
+\begin_inset Formula $\pi/4$
+\end_inset
+
+ (also
+\begin_inset Formula $45°$
+\end_inset
+
+):
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula
+\[
+\cos\frac{\pi}{4}=\sin\frac{\pi}{4}=\frac{\sqrt{2}}{2}.
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Bei
+\begin_inset Formula $\pi/3$
+\end_inset
+
+ (also
+\begin_inset Formula $60°$
+\end_inset
+
+):
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula
+\[
+\cos\frac{\pi}{3}=\frac{1}{2},\qquad\sin\frac{\pi}{3}=\frac{\sqrt{3}}{2}.
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Diese Werte tauchen so oft auf, dass es sich lohnt, sie einmal anzusehen
+ und im Kopf zu behalten — der Rest des Kreises lässt sich daraus durch
+ Spiegelung gewinnen.
+\end_layout
+
+\begin_layout Section
+Die Pizzaschnitte
+\end_layout
+
+\begin_layout Standard
+Auf der oberen Halbkreis-Hälfte zieht das Spielzeug sechs Linien — alle
+\begin_inset Formula $\pi/6$
+\end_inset
+
+ (also
+\begin_inset Formula $30°$
+\end_inset
+
+) ein Schnitt.
+ Damit lässt sich der halbe Kreis in Drittel und Sechstel teilen:
+\begin_inset Formula $\pi/3$
+\end_inset
+
+ ist der zweite Schnitt,
+\begin_inset Formula $\pi/2$
+\end_inset
+
+ der dritte (also genau oben),
+\begin_inset Formula $2\pi/3$
+\end_inset
+
+ der vierte.
+\end_layout
+
+\begin_layout Standard
+Auf der unteren Hälfte zieht das Spielzeug acht Linien — alle
+\begin_inset Formula $\pi/8$
+\end_inset
+
+ (also
+\begin_inset Formula $22{,}5°$
+\end_inset
+
+) ein Schnitt.
+ Damit zeigt der untere Halbkreis die Achtel und Viertel:
+\begin_inset Formula $\pi/4$
+\end_inset
+
+-Vielfache fallen alle auf einen Pizzaschnitt.
+\end_layout
+
+\begin_layout Standard
+Die zwei Halbkreise zeigen also zwei verschiedene Granularitäten desselben
+ Kreises — einmal in Sechsteln, einmal in Achteln.
+ Beide sind nützlich, je nachdem, ob man dritteln oder vierteln möchte.
+\end_layout
+
+\end_body
+\end_document
