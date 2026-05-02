@@ -1,10 +1,11 @@
 # Geometrie-Spielzeug
 
-Eine Flutter-App zum Erkunden geometrischer Konstruktionen — Schieberegler ändern, eine Live-Formel aktualisiert sich mit den Werten, und der zugehörige theoretische Hintergrund lässt sich direkt im selben Fenster aufschlagen.
+Eine Flutter-App zum Erkunden geometrischer Konstruktionen — Schieberegler ändern, eine Live-Formel oder eine mitlaufende Kurve aktualisieren sich, und der zugehörige theoretische Hintergrund lässt sich direkt im selben Fenster aufschlagen.
 
 Aktuell enthalten:
 
 - **Steiner-Kette** — `n` Kreise zwischen zwei sich nicht schneidenden Begrenzungskreisen. Verschiebung des inneren Kreises erzeugt eine exzentrische Kette über eine Möbius-Transformation; Rotation demonstriert Steiner's Porism.
+- **Einheitskreis** — beweglicher Zeiger auf dem Einheitskreis, mit weicher Einrastung an Standardwinkeln und Spring-Back beim Loslassen. Daneben/darunter eine Sinus- bzw. Kosinus-Welle, die mit dem Zeiger mitläuft, mit Verbindungslinien zu den Drittel- und Viertel-Anker-Punkten.
 
 Weitere Werkzeuge folgen.
 
@@ -27,10 +28,23 @@ Voraussetzungen für die Pipeline: `lyx` und `pandoc` im `PATH`. Ohne `make`-Lau
 
 ## Bedienung
 
-- Schieberegler: Anzahl Kreise, Verschiebung des Innenkreises, Rotation an/aus.
+**Gemeinsam in beiden Tools:**
+
+- Drawer-Symbol oben links wechselt zwischen den Werkzeugen.
+- Buch-Icon in der AppBar: Wide-Layout öffnet ein Theorie-Panel rechts; auf Mobile wird eine Vollbild-Route gepusht.
+- Drag-Handles zwischen den Panels: Spaltenbreiten live verstellbar.
+
+**Steiner-Kette:**
+
+- Schieberegler für Anzahl Kreise, Verschiebung des Innenkreises, Rotation an/aus.
 - Live-Formel unter den Slidern (KaTeX über `flutter_math_fork`): symbolische Form plus aktueller numerischer Wert für `n`.
-- Buch-Icon in der AppBar: Wide-Layout öffnet ein drittes Panel rechts; Mobile öffnet eine Vollbild-Route.
-- Drag-Handles zwischen den Panels: Spaltenbreite live verstellbar (im Wide-Layout).
+
+**Einheitskreis:**
+
+- Zeiger auf dem Kreisrand mit der Maus oder Finger ziehen — rastet weich an Standardwinkeln ein. Beim Loslassen rutscht er im Uhrzeigersinn zurück. Über 360° hinaus wird gewickelt; die Welle läuft entsprechend weiter.
+- Wave-Mode-Toggle oben im Panel: „Punkt wandert" (Welle steht, Marker wandert) oder „Welle wandert" (Marker bleibt am Wellen-Anfang, Welle scrollt durch).
+- Im Wide-Layout liegt die Welle rechts vom Kreis und zeigt Sinus (horizontal); im schmalen Layout rutscht sie unter den Kreis und zeigt Kosinus (vertikal). Verbindungslinien führen vom Kreis-Anker zur Welle, jeweils horizontal bzw. senkrecht.
+- Sinus-Werte sind in der Akzentfarbe „Gold", Kosinus-Werte in der zweiten Akzentfarbe — die Achsenbeschriftungen am Kreis (0°/180° vs. 90°/270°) zeigen die Zugehörigkeit.
 
 ## Lizenzen
 
