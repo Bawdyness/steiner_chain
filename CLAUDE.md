@@ -74,12 +74,36 @@ Key load-bearing decisions:
 
 ### Reference angle lists
 
-The pizza slices and connection-line anchors use different angle sets per layout — a fundamental of the user's design:
+The pizza slices and connection-line anchors use different angle sets per layout, strictly matching each hemisphere's family:
 
-- Wide (`_referenceAnglesWide`): upper hemisphere has the π/6 family + π/4 anchors; lower hemisphere has the π/8 family.
-- Narrow (`_referenceAnglesNarrow`): right hemisphere = π/6 + π/4; left hemisphere = π/8.
+- Wide (`_referenceAnglesWide`): upper hemisphere is **purely π/6** (30°-grid); lower hemisphere is **purely π/8** (22.5°-grid). The π/4 angles 225°/315° are kept in the lower set because they coincide with the π/8-grid (45° = 22.5° · 2). 45° and 135° are NOT in the upper set — having them there would break the strict 30°-grid feel.
+- Narrow (`_referenceAnglesNarrow`): same logic but rotated — right hemisphere (cos > 0) is π/6, left hemisphere (cos < 0) is π/8.
 
-The pizza-slice cuts on the circle adapt with the same right/left vs upper/lower split.
+The pizza-slice cuts on the circle follow the same partition, so the reference dots and the slice lines always agree.
+
+`kCheckpoints` (in `checkpoints.dart`) is the **universal** list used for snap and is independent of layout — π/6, π/4, and π/8 family members are all present, so dragging always finds the canonical anchor regardless of which hemisphere is showing 30°-cuts vs 22.5°-cuts.
+
+### Boundary-modulo subtleties
+
+Three places in `scene_painter.dart` need careful handling of the θ = 2π boundary because Dart's `2π % 2π` is 0:
+
+1. `_curvePath` samples θ from 0 to `_waveDisplayRange` — must NOT wrap at 2π, otherwise the curve's last sample lands at the origin instead of the right edge.
+2. `_referenceWaveEnd` positions the τ tick (at θ=2π exactly) — must NOT wrap, otherwise the τ label lands at the origin instead of the wave's negative-to-positive crossing at the end of one period.
+3. `_activeWavePoint` (the marker) — DOES wrap at 2π so the marker jumps back to the origin when the angle completes a full revolution. This is intentional and user-requested.
+
+The trick in (1) and (2): only modulo when strictly outside [0, 2π], not at the inclusive boundary.
+
+### License + about dialog
+
+`LICENSE` (CC BY-NC-SA 4.0) is bundled as an asset. `main.dart` registers it with `LicenseRegistry` so it appears alongside Flutter's auto-collected third-party licenses. The drawer's "Über"-Eintrag opens `showAboutDialog`, which exposes the standard "View Licenses" button.
+
+## Build identity (Android)
+
+- Bundle ID: `app.weltanschauung.geometriespielzeug`
+- Version: `0.1.0+1` (in `pubspec.yaml`)
+- Signing config in `android/app/build.gradle.kts` reads from `android/key.properties` (gitignored — contains the keystore path and password)
+- Upload keystore lives at `~/keys/geometriespielzeug-upload.jks` (RSA 2048, valid until 2053)
+- Build commands: `flutter build apk --release` (for emulator/device testing) or `flutter build appbundle --release` (for Play Store upload)
 
 ## Memory and feedback
 

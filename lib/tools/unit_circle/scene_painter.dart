@@ -132,19 +132,21 @@ class SceneLayout {
 const double _waveDisplayRange = 2.5 * math.pi;
 
 /// Anker-Winkel für die Verbindungs-Linien im Wide-Layout (Sinus-Welle).
-/// Obere Hälfte: π/6-Familie (Drittelung) — auch 45°/135° als π/4-Brüder.
-/// Untere Hälfte: π/8-Familie (Viertelung).
+/// Obere Hälfte: π/6-Familie (Drittelung) — strikt 30°-Schritte ohne π/4-
+/// Einsprengsel. Untere Hälfte: π/8-Familie (Viertelung), inkl. der
+/// π/4-Brüder 225°/315°, die dort sauber im 22.5°-Raster sitzen.
 const List<double> _referenceAnglesWide = [
-  30, 45, 60, 90, 120, 135, 150,
+  30, 60, 90, 120, 150,
   202.5, 225, 247.5, 270, 292.5, 315, 337.5,
 ];
 
 /// Anker-Winkel für das Narrow-Layout (Cosinus-Welle, vertikale
-/// Verbindungs-Linien). Rechte Hälfte (cos > 0): π/6-Familie + π/4.
-/// Linke Hälfte (cos < 0): π/8-Familie. 90° und 270° entfallen, weil
-/// dort cos = 0 — die Linie hätte keine horizontale Auslenkung.
+/// Verbindungs-Linien). Rechte Hälfte (cos > 0): π/6-Familie strikt in
+/// 30°-Schritten. Linke Hälfte (cos < 0): π/8-Familie inkl. 135°/225°.
+/// 90° und 270° entfallen, weil dort cos = 0 — die Linie hätte keine
+/// horizontale Auslenkung.
 const List<double> _referenceAnglesNarrow = [
-  0, 30, 45, 60, 300, 315, 330, 360,
+  0, 30, 60, 300, 330, 360,
   112.5, 135, 157.5, 180, 202.5, 225, 247.5,
 ];
 
@@ -230,10 +232,14 @@ class UnitCircleScenePainter extends CustomPainter {
     double offset;
     if (waveMode == WaveMode.waveOnMarker) {
       offset = angleRad - angleDegrees * math.pi / 180;
-      offset = offset % (2 * math.pi);
-      if (offset < 0) offset += 2 * math.pi;
     } else {
-      offset = angleRad % (2 * math.pi);
+      offset = angleRad;
+    }
+    // Modulo nur, wenn strikt außerhalb [0, 2π] — sonst landet der τ-Tick
+    // (genau bei 2π) wegen `2π mod 2π = 0` am Ursprung statt an seiner
+    // korrekten Position am Ende der ersten Periode.
+    if (offset < 0 || offset > 2 * math.pi) {
+      offset = offset % (2 * math.pi);
       if (offset < 0) offset += 2 * math.pi;
     }
     return _placeOnWave(l, offset / _waveDisplayRange, angleRad);
@@ -316,6 +322,12 @@ class UnitCircleScenePainter extends CustomPainter {
       ..color = color.withValues(alpha: 0.6);
     final labelStyle = textStyle.copyWith(color: color);
 
+    final axisLabelStyle = textStyle.copyWith(
+      color: color,
+      fontStyle: FontStyle.italic,
+      fontWeight: FontWeight.w600,
+    );
+
     if (l.wide) {
       // X-Achse (θ-Achse, horizontal) — bis zum Plot-Ende, d.h. _waveDisplayRange
       canvas.drawLine(
@@ -330,6 +342,21 @@ class UnitCircleScenePainter extends CustomPainter {
         axis,
       );
       _waveTickLabels(canvas, l, tick, labelStyle);
+      // Achsen-Beschriftungen X (rechts) und Y (oben)
+      _paintLabel(
+        canvas,
+        'X',
+        Offset(l.waveOrigin.dx + l.waveLength + 12, l.waveOrigin.dy),
+        Alignment.centerLeft,
+        axisLabelStyle,
+      );
+      _paintLabel(
+        canvas,
+        'Y',
+        Offset(l.waveOrigin.dx, l.waveOrigin.dy - l.waveAmplitude - 10),
+        Alignment.bottomCenter,
+        axisLabelStyle,
+      );
       return;
     }
 
@@ -345,6 +372,22 @@ class UnitCircleScenePainter extends CustomPainter {
       axis,
     );
     _waveTickLabels(canvas, l, tick, labelStyle);
+    // Achsen-Beschriftungen X (rechts) und Y (unten — θ-Achse zeigt nach
+    // unten, Label am Pfeil-Ende ist konventionell).
+    _paintLabel(
+      canvas,
+      'X',
+      Offset(l.waveOrigin.dx + l.waveAmplitude + 10, l.waveOrigin.dy),
+      Alignment.centerLeft,
+      axisLabelStyle,
+    );
+    _paintLabel(
+      canvas,
+      'Y',
+      Offset(l.waveOrigin.dx, l.waveOrigin.dy + l.waveLength + 12),
+      Alignment.topCenter,
+      axisLabelStyle,
+    );
   }
 
   void _waveTickLabels(
