@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
+import '../theory.dart';
 
 /// Steiner-Kette: `n` Kreise tangieren zwei nicht-schneidende Begrenzungskreise.
 ///
@@ -17,11 +18,15 @@ class SteinerPage extends StatefulWidget {
 
 class _SteinerPageState extends State<SteinerPage>
     with SingleTickerProviderStateMixin {
+  static const String _theoryAsset = 'assets/theory/steiner.md';
+
   int _n = 12;
   double _offset = 0.0;
   double _rotation = 0.0;
   bool _animate = true;
   double _controlsWidth = 360;
+  double _theoryWidth = 460;
+  bool _theoryVisible = false;
 
   late final Ticker _ticker;
   Duration _lastTick = Duration.zero;
@@ -53,37 +58,107 @@ class _SteinerPageState extends State<SteinerPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Steiner-Kette')),
+      appBar: AppBar(
+        title: const Text('Steiner-Kette'),
+        actions: [
+          LayoutBuilder(builder: (context, _) {
+            final isWide = MediaQuery.of(context).size.width > 700;
+            return IconButton(
+              tooltip: 'Theorie',
+              icon: Icon(
+                _theoryVisible && isWide
+                    ? Icons.menu_book
+                    : Icons.menu_book_outlined,
+              ),
+              onPressed: () {
+                if (isWide) {
+                  setState(() => _theoryVisible = !_theoryVisible);
+                } else {
+                  Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => const _TheoryRoute(asset: _theoryAsset),
+                  ));
+                }
+              },
+            );
+          }),
+        ],
+      ),
       body: LayoutBuilder(
         builder: (context, constraints) {
           final isWide = constraints.maxWidth > 700;
-          final controls = _buildControls();
-          final canvas = _buildCanvas();
           if (isWide) {
-            final maxControls = constraints.maxWidth - 240;
-            final w = _controlsWidth.clamp(260.0, maxControls);
-            return Row(
-              children: [
-                SizedBox(width: w, child: controls),
-                _DragHandle(
-                  onDrag: (dx) => setState(() {
-                    _controlsWidth =
-                        (_controlsWidth + dx).clamp(260.0, maxControls);
-                  }),
-                ),
-                Expanded(child: canvas),
-              ],
-            );
+            return _buildWideLayout(constraints);
           }
           return Column(
             children: [
-              Expanded(child: canvas),
+              Expanded(child: _buildCanvas()),
               const Divider(height: 1),
-              SizedBox(height: 280, child: controls),
+              SizedBox(height: 280, child: _buildControls()),
             ],
           );
         },
       ),
+    );
+  }
+
+  Widget _buildWideLayout(BoxConstraints constraints) {
+    final theoryW = _theoryVisible
+        ? _theoryWidth.clamp(320.0, constraints.maxWidth * 0.6)
+        : 0.0;
+    final maxControls = constraints.maxWidth - 240 - theoryW;
+    final controlsW = _controlsWidth.clamp(260.0, maxControls.clamp(260.0, double.infinity));
+
+    return Row(
+      children: [
+        SizedBox(width: controlsW, child: _buildControls()),
+        _DragHandle(
+          onDrag: (dx) => setState(() {
+            _controlsWidth = (_controlsWidth + dx).clamp(260.0, maxControls);
+          }),
+        ),
+        Expanded(child: _buildCanvas()),
+        if (_theoryVisible) ...[
+          _DragHandle(
+            onDrag: (dx) => setState(() {
+              _theoryWidth = (_theoryWidth - dx)
+                  .clamp(320.0, constraints.maxWidth * 0.6);
+            }),
+          ),
+          SizedBox(
+            width: theoryW,
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(
+                        color: Theme.of(context).colorScheme.outlineVariant,
+                      ),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Theorie',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        tooltip: 'Schließen',
+                        onPressed: () => setState(() => _theoryVisible = false),
+                      ),
+                    ],
+                  ),
+                ),
+                const Expanded(child: TheoryView(assetPath: _theoryAsset)),
+              ],
+            ),
+          ),
+        ],
+      ],
     );
   }
 
@@ -256,6 +331,20 @@ class _SteinerPainter extends CustomPainter {
   }
 }
 
+/// Vollbildroute für die Theorie auf schmalen Layouts (Mobile).
+class _TheoryRoute extends StatelessWidget {
+  const _TheoryRoute({required this.asset});
+  final String asset;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Theorie')),
+      body: TheoryView(assetPath: asset),
+    );
+  }
+}
+
 /// Schmaler Vertikal-Trenner, der per Drag die linke Spaltenbreite ändert.
 class _DragHandle extends StatelessWidget {
   const _DragHandle({required this.onDrag});
@@ -279,3 +368,4 @@ class _DragHandle extends StatelessWidget {
     );
   }
 }
+
