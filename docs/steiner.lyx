@@ -1,0 +1,301 @@
+#LyX 2.4 created this file. For more info see https://www.lyx.org/
+\lyxformat 620
+\begin_document
+\begin_header
+\save_transient_properties true
+\origin unavailable
+\textclass article
+\use_default_options true
+\maintain_unincluded_children no
+\language german
+\language_package default
+\inputencoding utf8
+\fontencoding auto
+\font_roman "default" "default"
+\font_sans "default" "default"
+\font_typewriter "default" "default"
+\font_math "auto" "auto"
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_roman_osf false
+\font_sans_osf false
+\font_typewriter_osf false
+\font_sf_scale 100 100
+\font_tt_scale 100 100
+\use_microtype false
+\use_dash_ligatures true
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\spacing single
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_package amsmath 1
+\use_package amssymb 1
+\use_package cancel 1
+\use_package esint 1
+\use_package mathdots 1
+\use_package mathtools 1
+\use_package mhchem 1
+\use_package stackrel 1
+\use_package stmaryrd 1
+\use_package undertilde 1
+\cite_engine basic
+\cite_engine_type default
+\biblio_style plain
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\justification true
+\use_refstyle 1
+\use_minted 0
+\use_lineno 0
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\is_math_indent 0
+\math_numbering_side default
+\quotes_style german
+\dynamic_quotes 0
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tablestyle default
+\tracking_changes false
+\output_changes false
+\change_bars false
+\postpone_fragile_content true
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\docbook_table_output 0
+\docbook_mathml_prefix 1
+\end_header
+
+\begin_body
+
+\begin_layout Title
+Steiner-Kette
+\end_layout
+
+\begin_layout Author
+Geometrie-Spielzeug
+\end_layout
+
+\begin_layout Section
+Aufbau
+\end_layout
+
+\begin_layout Standard
+Stell dir zwei Kreise vor, einer im anderen — ein größerer aussen und ein kleinerer innen.
+ Zwischen die beiden passt eine Kette aus
+\begin_inset Formula $n$
+\end_inset
+
+ weiteren Kreisen, und zwar so, dass jeder Kreis der Kette
+\end_layout
+
+\begin_layout Itemize
+den Außenkreis von innen berührt,
+\end_layout
+
+\begin_layout Itemize
+den Innenkreis von außen berührt,
+\end_layout
+
+\begin_layout Itemize
+und seine beiden Nachbarn in der Kette berührt.
+\end_layout
+
+\begin_layout Standard
+Im einfachsten Fall sitzt der innere Kreis genau im Mittelpunkt des äußeren, und alle Kettenkreise sind gleich groß.
+ Verschiebt man den Innenkreis aus der Mitte, werden die Kettenkreise unterschiedlich groß — aber alle Berührungen bleiben erhalten.
+ Die App zeigt diese Verschiebung über den Schieberegler
+\begin_inset Quotes gld
+\end_inset
+
+Verschiebung
+\begin_inset Quotes grd
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Section
+Der symmetrische Fall
+\end_layout
+
+\begin_layout Standard
+Solange beide Kreise denselben Mittelpunkt haben, ist die Rechnung überschaubar.
+ Wir setzen den Außenkreis auf Radius
+\begin_inset Formula $1$
+\end_inset
+
+ (das ist nur eine Wahl der Einheit).
+ Die
+\begin_inset Formula $n$
+\end_inset
+
+ Kettenkreise liegen auf einem gemeinsamen Mittelpunkts-Kreis und sind alle gleich groß.
+\end_layout
+
+\begin_layout Standard
+Vom Zentrum aus gesehen liegt zwischen zwei benachbarten Kettenkreis-Mittelpunkten der Winkel
+\begin_inset Formula $2\pi/n$
+\end_inset
+
+.
+ Die Bedingung, dass sich Nachbarn gerade berühren, übersetzt sich in eine einfache Gleichung mit dem Sinus des halben Winkels.
+ Daraus folgen direkt geschlossene Formeln für die drei wichtigen Radien — den des inneren Kreises, den der Kettenkreise und den Bahnradius, auf dem ihre Mittelpunkte sitzen:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula
+\[
+r_{\text{in}}=\frac{1-\sin(\pi/n)}{1+\sin(\pi/n)},\qquad r_{\text{Kette}}=\frac{1-r_{\text{in}}}{2},\qquad r_{\text{mid}}=\frac{1+r_{\text{in}}}{2}.
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Der innere Kreis bekommt dabei automatisch den richtigen Radius — die Kettenkreise berühren ihn, ohne dass wir das gesondert verlangen.
+\end_layout
+
+\begin_layout Section
+Steiner's Porism
+\end_layout
+
+\begin_layout Standard
+Hier kommt das Schöne.
+ Sobald für ein bestimmtes Paar von Kreisen (außen und innen) überhaupt eine geschlossene Kette aus
+\begin_inset Formula $n$
+\end_inset
+
+ Gliedern existiert, kann man sie um beliebige Winkel
+\begin_inset Quotes gld
+\end_inset
+
+drehen
+\begin_inset Quotes grd
+\end_inset
+
+ — und sie bleibt immer geschlossen.
+ Es gibt keinen ausgezeichneten Startpunkt.
+\end_layout
+
+\begin_layout Standard
+Andersherum: ändert man die beiden Begrenzungskreise, ist nicht garantiert, dass eine Kette mit
+\begin_inset Formula $n$
+\end_inset
+
+ Gliedern überhaupt passt.
+ Aber wenn sie passt, dann passt sie für jede Drehung.
+ Ob die Kette schließt, hängt also nur von der relativen Geometrie der beiden Begrenzungskreise ab, nicht vom Startwinkel.
+ Genau das nennt man Steiner's Porism.
+\end_layout
+
+\begin_layout Standard
+Beim Schieberegler
+\begin_inset Quotes gld
+\end_inset
+
+Rotation
+\begin_inset Quotes grd
+\end_inset
+
+ in der App siehst du diese Eigenschaft direkt: die Kette läuft endlos rund, ohne je
+\begin_inset Quotes gld
+\end_inset
+
+aufzubrechen
+\begin_inset Quotes grd
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Section
+Möbius-Transformation
+\end_layout
+
+\begin_layout Standard
+Bei der exzentrischen Variante — Innenkreis nicht im Zentrum — wirken die Rechnungen auf den ersten Blick deutlich unangenehmer.
+ Es gibt aber einen Trick, der sie auf den symmetrischen Fall zurückführt: eine bestimmte Möbius-Transformation der komplexen Ebene.
+ Konkret die Abbildung
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula
+\[
+f(z)=\frac{z+a}{1+a\,z},\qquad a\in(-1,1)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+mit einem reellen Parameter
+\begin_inset Formula $a$
+\end_inset
+
+.
+ Diese Abbildung hat zwei Eigenschaften, die alles andere möglich machen:
+\end_layout
+
+\begin_layout Itemize
+Sie bildet die Einheitskreisscheibe auf sich selbst ab — der Außenrand bleibt also unverändert dort, wo er ist.
+\end_layout
+
+\begin_layout Itemize
+Sie schickt jeden Kreis im Inneren wieder auf einen Kreis (nicht etwa auf eine Ellipse), und sie erhält Tangentialitäten — wenn sich zwei Kreise vorher berührt haben, tun sie das auch nachher.
+\end_layout
+
+\begin_layout Standard
+Was heißt das praktisch? Wir können die Steiner-Kette zuerst im symmetrischen Fall berechnen, danach jeden Punkt durch
+\begin_inset Formula $f$
+\end_inset
+
+ schicken, und erhalten dadurch automatisch eine gültige exzentrische Kette.
+ Der Slider
+\begin_inset Quotes gld
+\end_inset
+
+Verschiebung
+\begin_inset Quotes grd
+\end_inset
+
+ steuert genau den Parameter
+\begin_inset Formula $a$
+\end_inset
+
+.
+ Die Anzahl der Kreise, alle Berührungen und die Geschlossenheit bleiben erhalten — wir sehen also Steiner's Porism in einer anderen Verkleidung.
+\end_layout
+
+\begin_layout Standard
+Genau aus diesem Grund werden in der App nicht direkt Kreise gezeichnet, sondern für jeden Kreis 64 Punkte auf seinem Rand berechnet, durch
+\begin_inset Formula $f$
+\end_inset
+
+ transformiert und als Polygon verbunden.
+ Das Ergebnis sieht aus wie ein Kreis — und ist es auch, denn die Möbius-Abbildung garantiert das.
+\end_layout
+
+\end_body
+\end_document
