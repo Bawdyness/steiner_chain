@@ -1,8 +1,11 @@
 [package]
-name = "steiner_chain"
+name = "geometrie_spielzeug"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
 eframe = "0.27.0"
 egui = "0.27.0"
+typst = "0.14.2"
+typst-as-lib = "0.15.4"
+typst-render = "0.14.2"
