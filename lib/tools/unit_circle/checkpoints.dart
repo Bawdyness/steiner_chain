@@ -20,6 +20,10 @@ class Checkpoint {
   final String texCoords;
 }
 
+/// Universelle Liste aller Standardwinkel — π/6-Familie (alle 30°),
+/// π/4-Familie (alle 45°), und π/8-Familie (alle 22.5°). Welche davon im
+/// jeweiligen Layout als Pizzaschnitte und Anker-Linien dargestellt
+/// werden, entscheidet der Painter.
 const List<Checkpoint> kCheckpoints = [
   Checkpoint(
     degrees: 0,
@@ -47,6 +51,12 @@ const List<Checkpoint> kCheckpoints = [
     texCoords: r'\left(0,\,1\right)',
   ),
   Checkpoint(
+    degrees: 112.5,
+    texFraction: r'\dfrac{5\pi}{8}',
+    texCoords:
+        r'\left(-\dfrac{\sqrt{2-\sqrt{2}}}{2},\,\dfrac{\sqrt{2+\sqrt{2}}}{2}\right)',
+  ),
+  Checkpoint(
     degrees: 120,
     texFraction: r'\dfrac{2\pi}{3}',
     texCoords: r'\left(-\dfrac{1}{2},\,\dfrac{\sqrt{3}}{2}\right)',
@@ -62,11 +72,16 @@ const List<Checkpoint> kCheckpoints = [
     texCoords: r'\left(-\dfrac{\sqrt{3}}{2},\,\dfrac{1}{2}\right)',
   ),
   Checkpoint(
+    degrees: 157.5,
+    texFraction: r'\dfrac{7\pi}{8}',
+    texCoords:
+        r'\left(-\dfrac{\sqrt{2+\sqrt{2}}}{2},\,\dfrac{\sqrt{2-\sqrt{2}}}{2}\right)',
+  ),
+  Checkpoint(
     degrees: 180,
     texFraction: r'\pi',
     texCoords: r'\left(-1,\,0\right)',
   ),
-  // Untere Hälfte: π/8-Familie (Viertelung statt Drittelung).
   Checkpoint(
     degrees: 202.5,
     texFraction: r'\dfrac{9\pi}{8}',
@@ -96,9 +111,19 @@ const List<Checkpoint> kCheckpoints = [
         r'\left(\dfrac{\sqrt{2-\sqrt{2}}}{2},\,-\dfrac{\sqrt{2+\sqrt{2}}}{2}\right)',
   ),
   Checkpoint(
+    degrees: 300,
+    texFraction: r'\dfrac{5\pi}{3}',
+    texCoords: r'\left(\dfrac{1}{2},\,-\dfrac{\sqrt{3}}{2}\right)',
+  ),
+  Checkpoint(
     degrees: 315,
     texFraction: r'\dfrac{7\pi}{4}',
     texCoords: r'\left(\dfrac{\sqrt{2}}{2},\,-\dfrac{\sqrt{2}}{2}\right)',
+  ),
+  Checkpoint(
+    degrees: 330,
+    texFraction: r'\dfrac{11\pi}{6}',
+    texCoords: r'\left(\dfrac{\sqrt{3}}{2},\,-\dfrac{1}{2}\right)',
   ),
   Checkpoint(
     degrees: 337.5,
@@ -114,11 +139,15 @@ const List<Checkpoint> kCheckpoints = [
 ];
 
 /// Liefert den nahsten Checkpoint, falls innerhalb der Toleranz, sonst null.
+/// `degrees` darf außerhalb [0, 360) liegen — wird modular reduziert, weil
+/// die Checkpoint-Liste sich pro Umrundung wiederholt.
 Checkpoint? nearestCheckpoint(double degrees, {double toleranceDeg = 2.0}) {
+  var deg = degrees % 360;
+  if (deg < 0) deg += 360;
   Checkpoint? best;
   double bestDiff = toleranceDeg;
   for (final cp in kCheckpoints) {
-    final diff = (cp.degrees - degrees).abs();
+    final diff = (cp.degrees - deg).abs();
     if (diff < bestDiff) {
       bestDiff = diff;
       best = cp;

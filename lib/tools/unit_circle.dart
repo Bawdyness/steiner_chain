@@ -5,7 +5,7 @@ import '../theory.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/drag_handle.dart';
 import 'unit_circle/checkpoints.dart';
-import 'unit_circle/circle_painter.dart';
+import 'unit_circle/scene_painter.dart';
 
 /// Einheitskreis mit beweglichem Zeiger. Rastet weich an Standardwinkeln
 /// ein und federt im Uhrzeigersinn zurück zum Ruhewinkel 0°.
@@ -32,6 +32,10 @@ class _UnitCirclePageState extends State<UnitCirclePage>
   double _freeAngle = 0.0;
 
   Checkpoint? _snapped;
+  /// Die absolute Position (in Grad, kann jenseits von 360 liegen) des
+  /// aktuellen Snap-Ziels. Nötig für die Hysterese mit Winding.
+  double? _snappedAbsDegrees;
+  WaveMode _waveMode = WaveMode.markerOnWave;
 
   /// Winkel des Cursors zum Mittelpunkt im letzten Drag-Frame
   /// (für Wickel-Erkennung).
@@ -53,7 +57,9 @@ class _UnitCirclePageState extends State<UnitCirclePage>
       setState(() {
         _angle = _springAnim!.value;
         _freeAngle = _angle;
-        _snapped = nearestCheckpoint(_angle, toleranceDeg: _snapEnterDeg);
+        final result = _nearestCheckpointAbs(_angle, _snapEnterDeg);
+        _snapped = result?.cp;
+        _snappedAbsDegrees = result?.absDegrees;
       });
     });
   }
@@ -64,14 +70,15 @@ class _UnitCirclePageState extends State<UnitCirclePage>
     super.dispose();
   }
 
-  void _onPanStart(Offset localPosition, Size size) {
+  void _onPanStart(Offset localPosition, SceneLayout layout) {
+    if (!layout.isInsideCircleArea(localPosition)) return;
     _spring.stop();
-    _lastCursorDegrees = _cursorDegrees(localPosition, size);
-    _updateAngleFromCursor(localPosition, size, isStart: true);
+    _lastCursorDegrees = layout.cursorAngleDegrees(localPosition);
+    _updateAngleFromCursor(localPosition, layout, isStart: true);
   }
 
-  void _onPanUpdate(Offset localPosition, Size size) {
-    _updateAngleFromCursor(localPosition, size, isStart: false);
+  void _onPanUpdate(Offset localPosition, SceneLayout layout) {
+    _updateAngleFromCursor(localPosition, layout, isStart: false);
   }
 
   void _onPanEnd() {
@@ -79,61 +86,89 @@ class _UnitCirclePageState extends State<UnitCirclePage>
     _startSpringBack();
   }
 
-  /// Liefert den Winkel des Cursors zum Mittelpunkt in Grad,
-  /// normalisiert auf [0, 360).
-  double _cursorDegrees(Offset local, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final dx = local.dx - center.dx;
-    final dy = center.dy - local.dy; // Y nach oben positiv
-    final rad = math.atan2(dy, dx);
-    var deg = rad * 180 / math.pi;
-    if (deg < 0) deg += 360;
-    return deg;
-  }
-
   /// Wendet die Cursor-Bewegung als Delta auf den Zeigerwinkel an —
   /// vermeidet damit den Sprung beim Überschreiten von 0°/360°. Klemmt
   /// auf [0, 360] (single-revolution). Snap-Hysterese: Eintritt bei
   /// `_snapEnterDeg`, Austritt erst jenseits `_snapReleaseDeg` — sonst
   /// klebt der Zeiger bei langsamer Bewegung am Checkpoint fest.
-  void _updateAngleFromCursor(Offset local, Size size, {required bool isStart}) {
-    final cursor = _cursorDegrees(local, size);
+  void _updateAngleFromCursor(
+    Offset local,
+    SceneLayout layout, {
+    required bool isStart,
+  }) {
+    final cursor = layout.cursorAngleDegrees(local);
 
     if (isStart) {
-      _freeAngle = cursor.clamp(0.0, 360.0);
+      // Drag-Anfang: auf den Cursor springen, Winding-Zustand verwerfen.
+      _freeAngle = cursor;
       _snapped = null;
+      _snappedAbsDegrees = null;
     } else if (_lastCursorDegrees != null) {
       var delta = cursor - _lastCursorDegrees!;
       if (delta > 180) delta -= 360;
       if (delta < -180) delta += 360;
-      _freeAngle = (_freeAngle + delta).clamp(0.0, 360.0);
+      // Kein Clamp — _freeAngle darf jenseits [0, 360] wandern (Winding).
+      _freeAngle = _freeAngle + delta;
     }
     _lastCursorDegrees = cursor;
 
-    // Hysterese: gesnappt bleiben, bis _freeAngle den Release-Radius verlässt.
-    Checkpoint? snap = _snapped;
-    if (snap != null && (_freeAngle - snap.degrees).abs() > _snapReleaseDeg) {
-      snap = null;
+    // Hysterese: gesnappt bleiben, bis _freeAngle den Release-Radius
+    // gegenüber der absoluten Snap-Position verlässt.
+    if (_snappedAbsDegrees != null &&
+        (_freeAngle - _snappedAbsDegrees!).abs() > _snapReleaseDeg) {
+      _snapped = null;
+      _snappedAbsDegrees = null;
     }
-    snap ??= nearestCheckpoint(_freeAngle, toleranceDeg: _snapEnterDeg);
+    if (_snapped == null) {
+      final result = _nearestCheckpointAbs(_freeAngle, _snapEnterDeg);
+      if (result != null) {
+        _snapped = result.cp;
+        _snappedAbsDegrees = result.absDegrees;
+      }
+    }
 
     setState(() {
-      _snapped = snap;
-      _angle = snap?.degrees ?? _freeAngle;
+      _angle = _snappedAbsDegrees ?? _freeAngle;
     });
   }
 
+  /// Findet den naheliegendsten Checkpoint in absoluter Position — sucht
+  /// in der aktuellen Umrundung sowie in den beiden Nachbarn, damit Snap
+  /// auch nahe der 0°/360°-Grenze sauber funktioniert.
+  ({Checkpoint cp, double absDegrees})? _nearestCheckpointAbs(
+      double angle, double tolerance) {
+    Checkpoint? bestCp;
+    double bestAbs = 0;
+    double bestDist = tolerance;
+    final base = (angle / 360).floor();
+    for (final r in [base - 1, base, base + 1]) {
+      for (final cp in kCheckpoints) {
+        final candAbs = r * 360 + cp.degrees;
+        final dist = (angle - candAbs).abs();
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestCp = cp;
+          bestAbs = candAbs;
+        }
+      }
+    }
+    if (bestCp == null) return null;
+    return (cp: bestCp, absDegrees: bestAbs);
+  }
+
   void _startSpringBack() {
-    if (_angle <= 0.001) {
+    if (_angle.abs() <= 0.001) {
       _angle = 0;
       _freeAngle = 0;
       _snapped = nearestCheckpoint(0);
+      _snappedAbsDegrees = 0;
       setState(() {});
       return;
     }
     final from = _angle;
-    final duration =
-        Duration(milliseconds: (300 + from * 1.5).clamp(300, 1300).toInt());
+    final duration = Duration(
+      milliseconds: (300 + from.abs() * 1.5).clamp(300, 2000).toInt(),
+    );
     _spring
       ..stop()
       ..duration = duration;
@@ -254,23 +289,27 @@ class _UnitCirclePageState extends State<UnitCirclePage>
   Widget _buildCanvas() {
     return LayoutBuilder(builder: (context, constraints) {
       final size = Size(constraints.maxWidth, constraints.maxHeight);
+      final layout = SceneLayout.compute(size);
       return GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onPanStart: (d) => _onPanStart(d.localPosition, size),
-        onPanUpdate: (d) => _onPanUpdate(d.localPosition, size),
+        onPanStart: (d) => _onPanStart(d.localPosition, layout),
+        onPanUpdate: (d) => _onPanUpdate(d.localPosition, layout),
         onPanEnd: (_) => _onPanEnd(),
         onPanCancel: _onPanEnd,
         onTapDown: (d) {
+          if (!layout.isInsideCircleArea(d.localPosition)) return;
           _spring.stop();
-          _onPanStart(d.localPosition, size);
+          _onPanStart(d.localPosition, layout);
         },
         onTapUp: (_) => _onPanEnd(),
         child: CustomPaint(
-          painter: UnitCirclePainter(
+          painter: UnitCircleScenePainter(
             angleDegrees: _angle,
             snapped: _snapped,
             colorScheme: Theme.of(context).colorScheme,
-            textStyle: Theme.of(context).textTheme.bodyMedium ?? const TextStyle(),
+            textStyle:
+                Theme.of(context).textTheme.bodyMedium ?? const TextStyle(),
+            waveMode: _waveMode,
           ),
           child: const SizedBox.expand(),
         ),
@@ -284,9 +323,7 @@ class _UnitCirclePageState extends State<UnitCirclePage>
     final cosV = math.cos(radians);
     final sinV = math.sin(radians);
 
-    final hauptTex = _snapped != null
-        ? _snapped!.texFraction
-        : '${(radians / math.pi).toStringAsFixed(3)}\\,\\pi';
+    final hauptTex = _texForRadians(radians);
     final koordTex = _snapped != null
         ? _snapped!.texCoords
         : r'\left(' +
@@ -299,6 +336,24 @@ class _UnitCirclePageState extends State<UnitCirclePage>
       padding: const EdgeInsets.all(16),
       child: ListView(
         children: [
+          SegmentedButton<WaveMode>(
+            segments: const [
+              ButtonSegment(
+                value: WaveMode.markerOnWave,
+                label: Text('Punkt wandert'),
+              ),
+              ButtonSegment(
+                value: WaveMode.waveOnMarker,
+                label: Text('Welle wandert'),
+              ),
+            ],
+            selected: {_waveMode},
+            onSelectionChanged: (s) => setState(() => _waveMode = s.first),
+            style: const ButtonStyle(
+              visualDensity: VisualDensity(horizontal: -2, vertical: -2),
+            ),
+          ),
+          const SizedBox(height: 16),
           Text('Zeiger', style: theme.textTheme.labelMedium),
           const SizedBox(height: 8),
           SingleChildScrollView(
@@ -340,15 +395,54 @@ class _UnitCirclePageState extends State<UnitCirclePage>
           ),
           const SizedBox(height: 24),
           Text(
-            'Ziehe den Zeiger auf dem Kreis. Beim Loslassen läuft er im '
-            'Uhrzeigersinn zurück zum Ruhewinkel. An Standardwinkeln rastet '
-            'er weich ein.',
+            'Ziehe den Zeiger auf dem Kreis. Über 360° hinaus läuft die '
+            'Welle weiter. Beim Loslassen rutscht der Zeiger zurück zum '
+            'Ruhewinkel.',
             style: theme.textTheme.bodySmall,
           ),
         ],
       ),
     );
   }
+
+  /// Druckt einen Bogenmaß-Wert als möglichst hübschen LaTeX-Ausdruck.
+  /// Sonderfall: ganzzahlige Vielfache von τ → `\tau`, `2\tau`, …
+  /// Sonst: Bruch über π mit Nenner aus {1, 2, 3, 4, 6, 8}, soweit der
+  /// Wert genau passt; andernfalls Dezimalmultipikator.
+  String _texForRadians(double rad) {
+    if (rad.abs() < 1e-3) return r'0';
+
+    final tauRatio = rad / (2 * math.pi);
+    final tauRounded = tauRatio.roundToDouble();
+    if ((tauRatio - tauRounded).abs() < 1e-3 && tauRounded != 0) {
+      final n = tauRounded.toInt();
+      if (n == 1) return r'\tau';
+      if (n == -1) return r'-\tau';
+      return '$n\\tau';
+    }
+
+    final piRatio = rad / math.pi;
+    for (final den in [1, 2, 3, 4, 6, 8]) {
+      final num = piRatio * den;
+      if ((num - num.roundToDouble()).abs() < 1e-3) {
+        var n = num.round();
+        var d = den;
+        final g = _gcd(n.abs(), d);
+        n ~/= g;
+        d ~/= g;
+        if (d == 1) {
+          if (n == 1) return r'\pi';
+          if (n == -1) return r'-\pi';
+          return '$n\\pi';
+        }
+        final sign = n < 0 ? '-' : '';
+        return '$sign\\dfrac{${n.abs()}\\pi}{$d}';
+      }
+    }
+    return '${piRatio.toStringAsFixed(3)}\\,\\pi';
+  }
+
+  int _gcd(int a, int b) => b == 0 ? a : _gcd(b, a % b);
 }
 
 class _TheoryRoute extends StatelessWidget {
