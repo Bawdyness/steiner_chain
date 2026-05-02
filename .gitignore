@@ -1,6 +1,3 @@
-# Backup vom Rust-Prototypen — wird nach erfolgreicher Migration entfernt
-/_backup_rust_prototype/
-
 # Miscellaneous
 *.class
 *.log
