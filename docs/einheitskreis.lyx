@@ -454,5 +454,197 @@ Damit ist der Einheitskreis weniger ein Mathe-Werkzeug als das Skelett, auf dem 
  Wenn du am Zeiger ziehst und die Welle laufen lässt, simulierst du im Kleinen das, was in Sekundenbruchteilen in jedem Stromkabel passiert.
 \end_layout
 
+\begin_layout Section
+Hertz: das Maß für Wiederholungen
+\end_layout
+
+\begin_layout Standard
+Heinrich Hertz hat im 19.
+ Jahrhundert experimentell die elektromagnetischen Wellen nachgewiesen, die Maxwell theoretisch vorhergesagt hatte.
+ Heute ist die Einheit für Frequenz nach ihm benannt: ein Hertz (Hz) bedeutet
+\begin_inset Formula $\textbf{eine Wiederholung pro Sekunde}$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+Im Einheitskreis-Tool kannst du das selbst eintippen.
+ Bei
+\begin_inset Formula $1\,\text{Hz}$
+\end_inset
+
+ läuft der Zeiger genau eine volle Umdrehung pro Sekunde — im mathematischen System sind das
+\begin_inset Formula $360°/\text{s}$
+\end_inset
+
+ oder
+\begin_inset Formula $2\pi\,\text{rad}/\text{s}$
+\end_inset
+
+.
+ Die Welle daneben formt sich entsprechend langsam zu einer vollen Sinus- oder Cosinus-Periode.
+\end_layout
+
+\begin_layout Standard
+Periode
+\begin_inset Formula $T$
+\end_inset
+
+ (Dauer einer Wiederholung) und Frequenz
+\begin_inset Formula $f$
+\end_inset
+
+ (Anzahl Wiederholungen pro Zeiteinheit) sind Kehrwerte:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula
+\[
+T=\frac{1}{f}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Bei
+\begin_inset Formula $1\,\text{Hz}$
+\end_inset
+
+ dauert eine Periode 1 Sekunde, bei
+\begin_inset Formula $0{,}5\,\text{Hz}$
+\end_inset
+
+ schon 2 Sekunden, bei
+\begin_inset Formula $50\,\text{Hz}$
+\end_inset
+
+ nur noch 20 Millisekunden.
+\end_layout
+
+\begin_layout Subsection
+Frequenzen in vielen Größenordnungen
+\end_layout
+
+\begin_layout Standard
+Hertz misst alles, was sich regelmäßig wiederholt — von extrem langsam bis extrem schnell.
+ Ein paar Beispiele zur Orientierung:
+\end_layout
+
+\begin_layout Itemize
+Stundenzeiger einer Uhr:
+\begin_inset Formula $\approx0{,}0000231\,\text{Hz}$
+\end_inset
+
+ (eine Umrundung in 12 Stunden)
+\end_layout
+
+\begin_layout Itemize
+Minutenzeiger:
+\begin_inset Formula $\approx0{,}000278\,\text{Hz}$
+\end_inset
+
+ (eine Umrundung pro Stunde)
+\end_layout
+
+\begin_layout Itemize
+Sekundenzeiger:
+\begin_inset Formula $\approx0{,}0167\,\text{Hz}$
+\end_inset
+
+ (eine Umrundung pro Minute)
+\end_layout
+
+\begin_layout Itemize
+Pulsschlag in Ruhe:
+\begin_inset Formula $1{-}1{,}3\,\text{Hz}$
+\end_inset
+
+ (60–80 Schläge/Minute)
+\end_layout
+
+\begin_layout Itemize
+Wechselstrom in Europa:
+\begin_inset Formula $50\,\text{Hz}$
+\end_inset
+
+; in Nordamerika
+\begin_inset Formula $60\,\text{Hz}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+Kammerton a:
+\begin_inset Formula $440\,\text{Hz}$
+\end_inset
+
+ (Luftdruckschwankung pro Sekunde)
+\end_layout
+
+\begin_layout Itemize
+Hörbarer Bereich:
+\begin_inset Formula $20\,\text{Hz}$
+\end_inset
+
+ (tiefster Bass) bis
+\begin_inset Formula $20\,000\,\text{Hz}=20\,\text{kHz}$
+\end_inset
+
+ (höchster Ton)
+\end_layout
+
+\begin_layout Itemize
+UKW-Radio:
+\begin_inset Formula $\approx100\,\text{MHz}$
+\end_inset
+
+ (100 Millionen Hz)
+\end_layout
+
+\begin_layout Itemize
+WLAN, Mikrowellenherd:
+\begin_inset Formula $2{,}45\,\text{GHz}$
+\end_inset
+
+ (2,45 Milliarden Hz)
+\end_layout
+
+\begin_layout Itemize
+Sichtbares Licht:
+\begin_inset Formula $400{-}790\,\text{THz}$
+\end_inset
+
+ (400–790 Billionen Hz)
+\end_layout
+
+\begin_layout Standard
+Die Frequenz-Achse umspannt damit über zwanzig Größenordnungen, vom Stundenzeiger bis zum Licht.
+ Was alle diese Phänomene teilen: irgendetwas wiederholt sich regelmäßig, und Hertz misst, wie oft pro Sekunde.
+\end_layout
+
+\begin_layout Subsection
+Was die App damit zeigt
+\end_layout
+
+\begin_layout Standard
+Mit dem Hz-Eingabefeld erlebst du diese Skala an einem Ende selbst — von „kann man kaum sehen“ (
+\begin_inset Formula $0{,}001\,\text{Hz}$
+\end_inset
+
+, das ist gemütlicher als ein Sekundenzeiger) bis zu „nur noch Schemen“ (
+\begin_inset Formula $50\,\text{Hz}$
+\end_inset
+
+).
+ Über ungefähr 25 Hz hinaus kann das Auge einzelne Drehungen nicht mehr unterscheiden — der Zeiger verwischt zu einem stehenden Kreis.
+ Das Ohr hingegen hört einzelne Schwingungen noch bis 20 000 Hz als Tonhöhe.
+ Verschiedene Sinne setzen verschiedene Frequenzbereiche um — und Hertz ist die universelle Vergleichseinheit dazwischen.
+\end_layout
+
 \end_body
 \end_document

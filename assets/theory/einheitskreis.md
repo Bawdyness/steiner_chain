@@ -120,3 +120,69 @@ Damit ist der Einheitskreis weniger ein Mathe-Werkzeug als das Skelett,
 auf dem alle diese periodischen Phänomene aufgebaut sind. Wenn du am
 Zeiger ziehst und die Welle laufen lässt, simulierst du im Kleinen das,
 was in Sekundenbruchteilen in jedem Stromkabel passiert.
+
+# Hertz: das Maß für Wiederholungen
+
+Heinrich Hertz hat im 19. Jahrhundert experimentell die
+elektromagnetischen Wellen nachgewiesen, die Maxwell theoretisch
+vorhergesagt hatte. Heute ist die Einheit für Frequenz nach ihm benannt:
+ein Hertz (Hz) bedeutet$\textbf{eine Wiederholung pro Sekunde}$.
+
+Im Einheitskreis-Tool kannst du das selbst eintippen. Bei $1\,\text{Hz}$
+läuft der Zeiger genau eine volle Umdrehung pro Sekunde — im
+mathematischen System sind das $360{^\circ}/\text{s}$
+oder $2\pi\,\text{rad}/\text{s}$. Die Welle daneben formt sich
+entsprechend langsam zu einer vollen Sinus- oder Cosinus-Periode.
+
+Periode $T$ (Dauer einer Wiederholung) und Frequenz $f$ (Anzahl
+Wiederholungen pro Zeiteinheit) sind Kehrwerte:
+
+$$T=\frac{1}{f}$$
+
+Bei $1\,\text{Hz}$ dauert eine Periode 1 Sekunde, bei $0{,}5\,\text{Hz}$
+schon 2 Sekunden, bei $50\,\text{Hz}$ nur noch 20 Millisekunden.
+
+## Frequenzen in vielen Größenordnungen
+
+Hertz misst alles, was sich regelmäßig wiederholt — von extrem langsam
+bis extrem schnell. Ein paar Beispiele zur Orientierung:
+
+- Stundenzeiger einer Uhr: $\approx0{,}0000231\,\text{Hz}$ (eine
+  Umrundung in 12 Stunden)
+
+- Minutenzeiger: $\approx0{,}000278\,\text{Hz}$ (eine Umrundung pro
+  Stunde)
+
+- Sekundenzeiger: $\approx0{,}0167\,\text{Hz}$ (eine Umrundung pro
+  Minute)
+
+- Pulsschlag in Ruhe: $1{-}1{,}3\,\text{Hz}$ (60–80 Schläge/Minute)
+
+- Wechselstrom in Europa: $50\,\text{Hz}$; in Nordamerika $60\,\text{Hz}$
+
+- Kammerton a: $440\,\text{Hz}$ (Luftdruckschwankung pro Sekunde)
+
+- Hörbarer Bereich: $20\,\text{Hz}$ (tiefster Bass)
+  bis $20\,000\,\text{Hz}=20\,\text{kHz}$ (höchster Ton)
+
+- UKW-Radio: $\approx100\,\text{MHz}$ (100 Millionen Hz)
+
+- WLAN, Mikrowellenherd: $2{,}45\,\text{GHz}$ (2,45 Milliarden Hz)
+
+- Sichtbares Licht: $400{-}790\,\text{THz}$ (400–790 Billionen Hz)
+
+Die Frequenz-Achse umspannt damit über zwanzig Größenordnungen, vom
+Stundenzeiger bis zum Licht. Was alle diese Phänomene teilen:
+irgendetwas wiederholt sich regelmäßig, und Hertz misst, wie oft pro
+Sekunde.
+
+## Was die App damit zeigt
+
+Mit dem Hz-Eingabefeld erlebst du diese Skala an einem Ende selbst — von
+„kann man kaum sehen“ ( $0{,}001\,\text{Hz}$, das ist gemütlicher als ein
+Sekundenzeiger) bis zu „nur noch Schemen“ ( $50\,\text{Hz}$). Über
+ungefähr 25 Hz hinaus kann das Auge einzelne Drehungen nicht mehr
+unterscheiden — der Zeiger verwischt zu einem stehenden Kreis. Das Ohr
+hingegen hört einzelne Schwingungen noch bis 20 000 Hz als Tonhöhe.
+Verschiedene Sinne setzen verschiedene Frequenzbereiche um — und Hertz
+ist die universelle Vergleichseinheit dazwischen.
