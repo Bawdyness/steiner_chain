@@ -13,6 +13,42 @@ Current tools:
 - **Steiner-Kette** (`lib/tools/steiner.dart`) — `n` circles between two non-intersecting bounding circles. The eccentric variant uses a Möbius transform of the unit-disk symmetric case.
 - **Einheitskreis** (`lib/tools/unit_circle.dart` + `lib/tools/unit_circle/`) — a draggable pointer on the unit circle plus a live sine/cosine wave that adapts to layout.
 
+## Long-term architecture intent
+
+Today this repo is a single Flutter app. The intended endpoint is several apps — geometry, woodworking, physics, and so on — sharing one tool catalog. Target shape:
+
+```
+weltanschauung_workspace/
+├── packages/
+│   └── geometrie_kit/        # Shared: scaffold, theory, all tools
+└── apps/
+    ├── geometrie_spielzeug/  # Thin wrapper: bundle-id, theme, tool list
+    ├── holzbau_helfer/
+    └── physik_spielzeug/
+```
+
+In the target shape each tool is authored once in `geometrie_kit`. Each app is a thin wrapper with its own bundle-id, icon, Play Store listing and release cycle, and a `main.dart` of ~30 lines that lists which tools it includes. Migrating a tool from one app to another is a one-line change in two `main.dart` files — no code copy, no asset duplication.
+
+The Play Store treats these as separate apps: separate listings, separate ratings, separate release cycles. There is no cross-app magic — tool migration is just two normal app updates landing on different days.
+
+We are not in the monorepo yet — this section documents what we're working toward so the next refactor doesn't accidentally close that door. The actual extraction happens when (not before) the second app starts. Until then: stay disciplined as if the kit already existed.
+
+## Tool authoring disciplines
+
+Five rules that apply now, even while we're still single-app, because they are what makes the future kit-extraction trivial:
+
+1. **No app-level strings in tools.** A tool widget does not reference `'Geometrie-Spielzeug'`, the bundle-id, the seed color, or any other app-identity. Those live in `main.dart` and platform configs. A tool gets a title, an icon, an id, a builder — that is it.
+
+2. **No cross-tool imports.** A tool may import shared infrastructure (`lib/widgets/`, `lib/theory.dart`, `lib/scaffold/`), `dart:math`, and `package:flutter/...`. It must NOT import another tool. If two tools share something (e.g., a `Vec3`), that something belongs in shared infrastructure.
+
+3. **Tools are self-contained.** `lib/tools/<id>.dart` plus optional `lib/tools/<id>/` directory for sub-files. A tool does not spread across siblings or reach into another tool's directory.
+
+4. **Stable, persistence-safe IDs.** Each tool gets a `String id` (e.g., `'steiner'`, `'unit_circle'`) used as a SharedPreferences key, asset folder name, and registration anchor. The id is final after the tool ships — never rename.
+
+5. **Tool registration is data, not code.** `_tools` in `main.dart` is a `const` list of `ToolEntry` records. Adding a tool = creating its file + appending to the list. Removing a tool = removing the entry. Both are one-line changes in `main.dart`.
+
+These rules should not be relaxed even temporarily.
+
 ## Commands
 
 - `make -C docs` — convert all `docs/*.lyx` theory documents to `assets/theory/*.md` via LyX → LaTeX → Pandoc-gfm. Required before the in-app theory viewer has anything to show.
@@ -25,7 +61,9 @@ Current tools:
 
 ### Tool hub (`lib/main.dart`, `lib/widgets/app_drawer.dart`)
 
-`Hub` owns the active tool index and exposes it via `HubScope` (`InheritedWidget`). Each tool widget is a full `Scaffold` with its own AppBar and a `drawer:` slot pointing at the shared `AppDrawer`, which reads from `HubScope` to render the tool list. To add a tool, build a `StatefulWidget` returning a `Scaffold(drawer: const AppDrawer(), ...)` and append a `ToolEntry` to `_tools` in `main.dart`.
+`Hub` owns the active tool index and exposes it via `HubScope` (`InheritedWidget`). Each tool widget returns a `ToolScaffold(...)` (`lib/scaffold/tool_scaffold.dart`) which handles the AppBar, drawer slot, Wide/Narrow layout (`> 700` breakpoint), drag-handles for panel widths, and the optional reference panel (Theorie / Glossar / Symbole / Beispiele tabs). The tool itself only provides `controls` and `canvas` widgets, plus optional `reference: ToolReference(...)`. See "Adding a new tool" below for the recipe.
+
+`Hub` filters the tool list by the user's visibility set (managed via "Einstellungen" in the drawer, persisted in `shared_preferences`) before exposing it to `AppDrawer`.
 
 ### Live formulas (`flutter_math_fork`)
 
@@ -98,9 +136,29 @@ The trick in (1) and (2): only modulo when strictly outside [0, 2π], not at the
 
 `LICENSE` (CC BY-NC-SA 4.0) is bundled as an asset. `main.dart` registers it with `LicenseRegistry` so it appears alongside Flutter's auto-collected third-party licenses. The drawer's "Über"-Eintrag opens `showAboutDialog`, which exposes the standard "View Licenses" button.
 
+### Adding a new tool
+
+1. Choose a stable `id`: lowercase, snake_case, never changes after the tool ships.
+2. Create `lib/tools/<id>.dart` with a `StatefulWidget` whose `build()` returns `ToolScaffold(...)`.
+3. If the tool needs sub-files (helpers, painters, sub-widgets), put them under `lib/tools/<id>/`.
+4. Author theory in `docs/<id>.lyx`. If the tool has its own glossary, add `docs/<id>_glossar.lyx`. Run `make -C docs` to produce the Markdown assets.
+5. Append a `ToolEntry(id: '<id>', title: ..., icon: ..., builder: () => <Tool>Page())` to `_tools` in `main.dart`. The const list keeps natural authoring order; the drawer renders in that order.
+6. Drawer entry, settings toggle, theory book-icon, and persistence wire up automatically from the registration. No further setup.
+
+What you must not do (see "Tool authoring disciplines" above):
+- Hard-code app-identity strings in the tool — title comes via `ToolEntry.title`.
+- Import another tool — share via `lib/scaffold/`, `lib/widgets/`, or other shared infrastructure.
+- Change the `id` after the tool has shipped — it is the SharedPreferences key.
+
+## Tool visibility (user setting)
+
+Users can hide tools they do not want via the drawer entry "Einstellungen". A `Set<String>` of deactivated tool ids is persisted via `shared_preferences`. `Hub` filters `_tools` by the visible set before exposing it to `AppDrawer`. UI enforces that at least one tool stays visible (the last one cannot be deactivated).
+
+This is UX-only — the APK ships with all tools regardless of which are visible. Reducing actual bundle size via Android Play Feature Delivery (Flutter `deferred_components`) is a separate, future option, only worth pursuing if total bundle exceeds ~100 MB. Android-only — iOS and desktop ship the full bundle anyway. Out of scope today.
+
 ## Build identity (Android)
 
-- Bundle ID: `app.weltanschauung.geometriespielzeug`
+- Bundle ID: `app.weltanschauung.geometrie`
 - Version: `0.1.0+1` (in `pubspec.yaml`)
 - Signing config in `android/app/build.gradle.kts` reads from `android/key.properties` (gitignored — contains the keystore path and password)
 - Upload keystore lives at `~/keys/geometriespielzeug-upload.jks` (RSA 2048, valid until 2053)
