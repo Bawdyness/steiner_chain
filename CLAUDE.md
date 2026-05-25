@@ -12,6 +12,7 @@ Current tools:
 
 - **Steiner-Kette** (`lib/tools/steiner.dart`) — `n` circles between two non-intersecting bounding circles. The eccentric variant uses a Möbius transform of the unit-disk symmetric case.
 - **Einheitskreis** (`lib/tools/unit_circle.dart` + `lib/tools/unit_circle/`) — a draggable pointer on the unit circle plus a live sine/cosine wave that adapts to layout.
+- **Wachstum** (`lib/tools/wachstum.dart` + `lib/tools/wachstum/`) — Schwung-Treppe: aus einzelnen Rechen-Kacheln (`+ − × ÷`) baut sich eine Funktion auf der `Größe × Zeit`-Ebene auf. Auto-Zoom auf hellgrünem Hilfsgerüst.
 
 ## Long-term architecture intent
 
@@ -57,6 +58,24 @@ These rules should not be relaxed even temporarily.
 - `flutter analyze` / `flutter test` — static check and widget test.
 - `flutter build linux --release` / `flutter build apk` — release builds.
 
+## Screenshot-Workflow (Linux-Dev, für visuelle Kontrolle)
+
+UI-Änderungen werden auf dem Linux-Desktop visuell überprüft, weil weder Tests noch `flutter analyze` Aussagen über das tatsächliche Aussehen treffen. Ablauf:
+
+1. **Voraussetzung**: `gnome-screenshot` muss installiert sein (`sudo apt-get install -y gnome-screenshot`). Das Repo läuft auf Ubuntu/GNOME unter Wayland; ältere X11-Tools wie `import` funktionieren dort nicht. Wer auf einer anderen Distribution arbeitet, ersetzt durch `grim` (wlroots) oder `spectacle` (KDE).
+2. **Bauen**: `flutter build linux --debug` (Debug reicht — Release ist langsamer und ohne Screenshot-Vorteil).
+3. **App im Hintergrund starten und screenshoten**:
+   ```bash
+   ./build/linux/x64/debug/bundle/geometrie_spielzeug > /tmp/app.log 2>&1 &
+   PID=$!
+   sleep 4                              # Window-Aufbau abwarten
+   gnome-screenshot -f /tmp/shot.png
+   kill $PID
+   ```
+4. **Bild lesen** mit dem `Read`-Tool — Claude kann PNG direkt interpretieren.
+5. **Navigation simulieren**: Es ist **kein** Klick-/Tastatur-Automat installiert (`xdotool`, `wtype` etc. fehlen). Um in ein bestimmtes Werkzeug oder einen bestimmten Zustand zu kommen, **patcht man temporär die Initialwerte** in `lib/main.dart` (`_activeIndex`) und/oder im Tool selbst (`_y0`, `_tiles`, `_currentT` für Wachstum; Slider-Defaults für Steiner; …), baut neu, screenshotet und **revertet die Demo-Werte vor dem Commit**.
+6. Bei dieser Arbeitsweise immer in Erinnerung halten: Tests und `flutter analyze` zeigen Korrektheit, nicht Aussehen. Wenn ein Screenshot nicht möglich ist (z. B. headless CI), das explizit benennen statt „funktioniert" zu behaupten.
+
 ## Architecture
 
 ### Tool hub (`lib/main.dart`, `lib/widgets/app_drawer.dart`)
@@ -67,10 +86,11 @@ These rules should not be relaxed even temporarily.
 
 ### Live formulas (`flutter_math_fork`)
 
-`flutter_math_fork` renders KaTeX-style math. Used in two places:
+`flutter_math_fork` renders KaTeX-style math. Used in three places:
 
 - The Steiner controls panel renders `r_in = …` with the current `n` substituted on every slider tick.
 - The Einheitskreis side panel renders the current angle as a fraction of π (or τ for full revolutions) plus the cosine/sine pair as exact radicals at standard angles. The fraction is generated dynamically by `_texForRadians` in `unit_circle.dart`, which tries denominators {1, 2, 3, 4, 6, 8} before falling back to a decimal multiplier of π — this also handles winding (e.g., `3π` at 540°, `2τ` at 720°).
+- The Wachstum controls panel renders the „Rechen-Spur": `y₀ →^{+1} 1 →^{×2} 2 …` per `\xrightarrow{…}`. Operator-Symbole kommen aus `WachstumOpDisplay.tex`.
 
 ### Theory viewer (`lib/theory.dart` + `docs/`)
 
@@ -131,6 +151,24 @@ Three places in `scene_painter.dart` need careful handling of the θ = 2π bound
 3. `_activeWavePoint` (the marker) — DOES wrap at 2π so the marker jumps back to the origin when the angle completes a full revolution. This is intentional and user-requested.
 
 The trick in (1) and (2): only modulo when strictly outside [0, 2π], not at the inclusive boundary.
+
+### Wachstum specifics (`lib/tools/wachstum/`)
+
+Drei Dateien:
+
+- `tile.dart` — `WachstumOp` (vier Grundrechenarten), `WachstumTile` (Operator + Wert), `checkpointValues(y0, tiles)` liefert die Folge `[y₀, y₀∘t₀, (y₀∘t₀)∘t₁, …]`. Operatoren wirden strikt links-nach-rechts ohne Vorrang angewendet — was du in der Kachelreihe siehst, ist die Reihenfolge.
+- `painter.dart` — `WachstumScale` (Auto-Zoom auf hübsche Halbreiten 5/10/20/50/…/100000, Major immer 1/5 der Halbreite, Minor immer 1/5 des Majors → optisch gleich dichtes Gerüst, egal wie groß die Skala), `WachstumLayout` (Gemeinschafts-Geometrie, die der Painter und die Kachel-Bar teilen — beide müssen für ein `t` denselben Pixel ergeben, sonst stehen die Kacheln nicht über ihren Zeit-Intervallen), `WachstumPainter` (Gerüst + Schwung-Kurve + Marker).
+- Die Page selbst (`wachstum.dart`) trägt State, Hz-Ticker, Bottom-Sheets zum Bearbeiten.
+
+Schlüssel-Entscheidungen:
+
+- **Schwung = smoothstep in y, linear in t.** Innerhalb jedes Segments ist `x(t)` linear (eine Zeit-Einheit pro Kachel), `y(t)` interpoliert per `t·t·(3−2t)` zwischen Anfangs- und End-Wert. Damit hat die Tangente an beiden Enden des Segments dy/dx = 0 — die geforderte „horizontal → vertikal → horizontal"-Bewegung. **Wichtig**: `_currentT` läuft selbst linear in Echtzeit; das easing macht **nur der Painter**. Würde der Ticker bereits easeInOutCubic anwenden, wäre der Schwung doppelt geknickt.
+- **Auto-Zoom symmetrisch um Null.** `WachstumScale.forValues` nimmt `max(|y|)` über alle Checkpoint-Werte, plus 15 % Polster, und rastet auf die nächste „nice" Halbreite ein. So bleibt die Null-Linie immer in der vertikalen Mitte, auch wenn der Wertebereich exponentiell wächst. Major/Minor-Verhältnis 5:5:1 sorgt dafür, dass die hellgrünen Linien optisch gleich dicht aussehen, egal ob die Skala bei ±5 oder ±10000 steht.
+- **Hellgrünes Gerüst** statt `colorScheme.outline` — eigene Farbkonstante `_gridColor = Color(0xFF9CCC65)`, weil das Skala-Konzept einen ruhigen, eigenständigen Akzent braucht, der sich vom Funktions-Lavendel (`colorScheme.primary`) absetzt. Major-Alpha 0.32, Minor-Alpha 0.14.
+- **Hz-Semantik wie beim Einheitskreis.** Ein einziger `Ticker` läuft permanent; in `_PlayMode.hzAuto` schiebt er `_currentT` um `_hz · Δt` pro Frame; in `_PlayMode.manualStep` schiebt er konstant `1 / 0.8 ≈ 1.25 t-Einheiten/s` (eine Kachel pro 800 ms). `_targetT` ist die Grenze, bei der die Bewegung anhält. Hz = 0 schaltet automatisch auf Hand-Modus um (Play wird zu „Schritt").
+- **Stack-Overlay statt eigener Bottom-Strip.** Der Canvas-Slot enthält `Stack([CustomPaint, …positioned tiles])`. Der Painter respektiert `bottomInset = 96`, die Kachel-Bar überlagert genau diesen Streifen. Tile-Position pro Slot `i`: `centerX = layout.tToX(i + 0.5)` — y₀-Kachel sitzt bei Slot −1 (also t = −0.5), Operator-Kachel k bei Slot k (also über dem Intervall [k, k+1]), Add-Kachel bei Slot `tiles.length`. Damit fluchten die Kacheln immer mit dem t-Gitter.
+- **Bottom-Sheets zum Editieren.** Tippt man eine Kachel an, öffnet `_TileEditSheet` mit Operator-`SegmentedButton` (`+ − × ÷`) und Zahlenfeld. Die y₀-Kachel öffnet `_ValueEditSheet` (nur Wert). Division durch 0 wird im Sheet abgefangen.
+- **t-Bereich.** `tMin = −1` (Platz für y₀-Kachel), `tMax = max(tiles.length + 1, 5)` (Platz für Add-Kachel plus mindestens 5 Sekunden Sichtfeld). Horizontales Scrollen für sehr lange Sequenzen ist nicht eingebaut — auf engen Bildschirmen werden die Kacheln per `min(_tileWidth, pxPerT − 6)` zusammengedrückt.
 
 ### License + about dialog
 

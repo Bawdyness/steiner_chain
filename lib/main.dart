@@ -4,6 +4,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'tools/steiner.dart';
 import 'tools/unit_circle.dart';
+import 'tools/wachstum.dart';
 import 'widgets/app_drawer.dart';
 
 void main() {
@@ -52,6 +53,12 @@ const List<ToolEntry> _tools = [
     title: 'Einheitskreis',
     icon: Icons.pie_chart_outline,
     builder: UnitCirclePage.new,
+  ),
+  ToolEntry(
+    id: 'wachstum',
+    title: 'Wachstum',
+    icon: Icons.trending_up,
+    builder: WachstumPage.new,
   ),
 ];
 
