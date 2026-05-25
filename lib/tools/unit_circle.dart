@@ -2,9 +2,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
+import '../scaffold/tool_scaffold.dart';
 import '../theory.dart';
-import '../widgets/app_drawer.dart';
-import '../widgets/drag_handle.dart';
 import 'unit_circle/checkpoints.dart';
 import 'unit_circle/scene_painter.dart';
 
@@ -54,10 +53,6 @@ class _UnitCirclePageState extends State<UnitCirclePage>
   Duration? _hzLastTick;
   late final TextEditingController _hzController;
 
-  double _controlsWidth = 360;
-  double _theoryWidth = 460;
-  bool _theoryVisible = false;
-
   @override
   void initState() {
     super.initState();
@@ -85,7 +80,7 @@ class _UnitCirclePageState extends State<UnitCirclePage>
   }
 
   void _onHzTick(Duration elapsed) {
-    if (_frequencyHz <= 0 ||
+    if (_frequencyHz == 0 ||
         _lastCursorDegrees != null ||
         _spring.isAnimating) {
       _hzLastTick = elapsed;
@@ -107,13 +102,11 @@ class _UnitCirclePageState extends State<UnitCirclePage>
   }
 
   void _setHz(double hz) {
-    final clamped = hz.clamp(0.0, _maxHz);
+    final clamped = hz.clamp(-_maxHz, _maxHz);
     setState(() {
       _frequencyHz = clamped;
-      // Beim Tippen aktualisieren wir das Feld nicht (sonst Cursor-Sprung);
-      // bei Preset-Knöpfen hingegen schon.
       _hzLastTick = null;
-      if (clamped > 0) {
+      if (clamped != 0) {
         _spring.stop();
         _snapped = null;
         _snappedAbsDegrees = null;
@@ -125,8 +118,6 @@ class _UnitCirclePageState extends State<UnitCirclePage>
     final cleaned = s.replaceAll(',', '.').trim();
     final value = double.tryParse(cleaned);
     if (value == null) {
-      // Leeres oder ungültiges Feld → Animation stoppen, aber Eingabe
-      // unangetastet lassen, damit der User weitertippen kann.
       _setHz(0);
       return;
     }
@@ -151,9 +142,7 @@ class _UnitCirclePageState extends State<UnitCirclePage>
 
   void _onPanEnd() {
     _lastCursorDegrees = null;
-    if (_frequencyHz > 0) {
-      // Auto-Animation übernimmt wieder ab der aktuellen Position —
-      // kein Spring-Back, kein Snap.
+    if (_frequencyHz != 0) {
       _hzLastTick = null;
       _snapped = null;
       _snappedAbsDegrees = null;
@@ -175,7 +164,6 @@ class _UnitCirclePageState extends State<UnitCirclePage>
     final cursor = layout.cursorAngleDegrees(local);
 
     if (isStart) {
-      // Drag-Anfang: auf den Cursor springen, Winding-Zustand verwerfen.
       _freeAngle = cursor;
       _snapped = null;
       _snappedAbsDegrees = null;
@@ -183,13 +171,10 @@ class _UnitCirclePageState extends State<UnitCirclePage>
       var delta = cursor - _lastCursorDegrees!;
       if (delta > 180) delta -= 360;
       if (delta < -180) delta += 360;
-      // Kein Clamp — _freeAngle darf jenseits [0, 360] wandern (Winding).
       _freeAngle = _freeAngle + delta;
     }
     _lastCursorDegrees = cursor;
 
-    // Hysterese: gesnappt bleiben, bis _freeAngle den Release-Radius
-    // gegenüber der absoluten Snap-Position verlässt.
     if (_snappedAbsDegrees != null &&
         (_freeAngle - _snappedAbsDegrees!).abs() > _snapReleaseDeg) {
       _snapped = null;
@@ -256,109 +241,16 @@ class _UnitCirclePageState extends State<UnitCirclePage>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      drawer: const AppDrawer(),
-      appBar: AppBar(
-        title: const Text('Einheitskreis'),
-        actions: [
-          LayoutBuilder(builder: (context, _) {
-            final isWide = MediaQuery.of(context).size.width > 700;
-            return IconButton(
-              tooltip: 'Theorie',
-              icon: Icon(
-                _theoryVisible && isWide
-                    ? Icons.menu_book
-                    : Icons.menu_book_outlined,
-              ),
-              onPressed: () {
-                if (isWide) {
-                  setState(() => _theoryVisible = !_theoryVisible);
-                } else {
-                  Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => const _TheoryRoute(asset: _theoryAsset),
-                  ));
-                }
-              },
-            );
-          }),
-        ],
-      ),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final isWide = constraints.maxWidth > 700;
-          if (isWide) return _buildWideLayout(constraints);
-          return Column(
-            children: [
-              Expanded(child: _buildCanvas()),
-              const Divider(height: 1),
-              SizedBox(height: 280, child: _buildDisplay()),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildWideLayout(BoxConstraints constraints) {
-    final theoryW = _theoryVisible
-        ? _theoryWidth.clamp(320.0, constraints.maxWidth * 0.6)
-        : 0.0;
-    final maxControls = constraints.maxWidth - 240 - theoryW;
-    final controlsW = _controlsWidth.clamp(
-      260.0,
-      maxControls.clamp(260.0, double.infinity),
-    );
-    return Row(
-      children: [
-        SizedBox(width: controlsW, child: _buildDisplay()),
-        DragHandle(
-          onDrag: (dx) => setState(() {
-            _controlsWidth = (_controlsWidth + dx).clamp(260.0, maxControls);
-          }),
+    return ToolScaffold(
+      title: 'Einheitskreis',
+      controls: _buildDisplay(),
+      canvas: _buildCanvas(),
+      reference: const ToolReference(tabs: [
+        ReferenceTab(
+          label: 'Theorie',
+          content: TheoryView(assetPath: _theoryAsset),
         ),
-        Expanded(child: _buildCanvas()),
-        if (_theoryVisible) ...[
-          DragHandle(
-            onDrag: (dx) => setState(() {
-              _theoryWidth = (_theoryWidth - dx)
-                  .clamp(320.0, constraints.maxWidth * 0.6);
-            }),
-          ),
-          SizedBox(
-            width: theoryW,
-            child: Column(
-              children: [
-                Container(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
-                  decoration: BoxDecoration(
-                    border: Border(
-                      bottom: BorderSide(
-                        color: Theme.of(context).colorScheme.outlineVariant,
-                      ),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Theorie',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        tooltip: 'Schließen',
-                        onPressed: () => setState(() => _theoryVisible = false),
-                      ),
-                    ],
-                  ),
-                ),
-                const Expanded(child: TheoryView(assetPath: _theoryAsset)),
-              ],
-            ),
-          ),
-        ],
-      ],
+      ]),
     );
   }
 
@@ -394,7 +286,7 @@ class _UnitCirclePageState extends State<UnitCirclePage>
   }
 
   Widget _buildHzControls(ThemeData theme) {
-    final running = _frequencyHz > 0;
+    final running = _frequencyHz != 0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -588,17 +480,3 @@ class _UnitCirclePageState extends State<UnitCirclePage>
 
   int _gcd(int a, int b) => b == 0 ? a : _gcd(b, a % b);
 }
-
-class _TheoryRoute extends StatelessWidget {
-  const _TheoryRoute({required this.asset});
-  final String asset;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Theorie')),
-      body: TheoryView(assetPath: asset),
-    );
-  }
-}
-

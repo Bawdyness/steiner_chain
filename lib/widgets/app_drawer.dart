@@ -1,34 +1,57 @@
 import 'package:flutter/material.dart';
+import 'settings_screen.dart';
 
-/// Eintrag in der Tool-Liste — Anzeigename, Icon, und Builder für das
-/// eigentliche Tool-Widget. Tools sind eigenständige `Scaffold`s mit
-/// eigener AppBar und ihrem eigenen `drawer:`-Slot, der diesen
-/// `AppDrawer` instanziiert.
+/// Eintrag in der Tool-Liste — stabiler `id`, Anzeigename, Icon, und Builder
+/// für das eigentliche Tool-Widget. Tools sind eigenständige Widgets, die
+/// sich an `ToolScaffold` hängen (siehe CLAUDE.md → "Adding a new tool").
+///
+/// Der `id` ist persistenz-relevant (SharedPreferences-Schlüssel für die
+/// Sichtbarkeits-Toggle-Liste) und wird nach Auslieferung NIE umbenannt.
 class ToolEntry {
   const ToolEntry({
+    required this.id,
     required this.title,
     required this.icon,
     required this.builder,
   });
+  final String id;
   final String title;
   final IconData icon;
   final Widget Function() builder;
 }
 
-/// Stellt die Tool-Liste und die aktive Auswahl unten an die Widget-Tree —
-/// jedes Tool kann via `HubScope.of(context)` die Auswahl ändern.
+/// Stellt die Tool-Liste, die aktive Auswahl und die Sichtbarkeits-Logik an
+/// die Widget-Tree. `entries` enthält nur die *sichtbaren* Tools (die der
+/// Drawer rendert); `allEntries` enthält alle (für die Einstellungs-Liste).
 class HubScope extends InheritedWidget {
   const HubScope({
     super.key,
     required this.entries,
+    required this.allEntries,
     required this.activeIndex,
     required this.onSelect,
+    required this.disabledIds,
+    required this.onToggleTool,
     required super.child,
   });
 
+  /// Sichtbare Tools (gefiltert nach `disabledIds`).
   final List<ToolEntry> entries;
+
+  /// Alle registrierten Tools, unabhängig von Sichtbarkeit.
+  final List<ToolEntry> allEntries;
+
+  /// Index in `entries` des gerade aktiven Tools.
   final int activeIndex;
+
   final void Function(int) onSelect;
+
+  /// IDs der vom User deaktivierten Tools.
+  final Set<String> disabledIds;
+
+  /// Setzt die Sichtbarkeit eines Tools. Das letzte sichtbare Tool kann
+  /// nicht deaktiviert werden (UI verhindert das).
+  final void Function(String id, bool enabled) onToggleTool;
 
   static HubScope of(BuildContext context) {
     final scope = context.dependOnInheritedWidgetOfExactType<HubScope>();
@@ -38,7 +61,9 @@ class HubScope extends InheritedWidget {
 
   @override
   bool updateShouldNotify(HubScope old) =>
-      activeIndex != old.activeIndex || entries != old.entries;
+      activeIndex != old.activeIndex ||
+      entries != old.entries ||
+      disabledIds != old.disabledIds;
 }
 
 /// Drawer mit Tool-Liste, geteilt von allen Tools. Reagiert auf den
@@ -74,6 +99,16 @@ class AppDrawer extends StatelessWidget {
               ),
             const Spacer(),
             const Divider(),
+            ListTile(
+              leading: const Icon(Icons.tune_outlined),
+              title: const Text('Einstellungen'),
+              onTap: () {
+                Navigator.of(context).pop();
+                Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => const SettingsScreen(),
+                ));
+              },
+            ),
             ListTile(
               leading: const Icon(Icons.info_outline),
               title: const Text('Über'),
