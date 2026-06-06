@@ -222,30 +222,15 @@ class _BidozenalPageState extends State<BidozenalPage> {
   }
 
   /// Double-tap toggle for trig/hyperbolic functions (sin → sin⁻¹ → sin).
+  /// Shares the buffer logic with the curve plotter (see lib/calc/input.dart).
   bool _tryInverseToggle(FuncId id) {
-    if (_cursor == 0) return false;
-    final prev = _input[_cursor - 1];
-    if (prev is! FuncTok) return false;
-    final FuncId? swap;
-    if (prev.id == id) {
-      swap = id.inverse;
-    } else if (prev.id == id.inverse) {
-      swap = id;
-    } else {
-      swap = null;
-    }
-    if (swap == null) return false;
-    _input = [..._input];
-    _input[_cursor - 1] = FuncTok(swap);
+    final swapped = toggledInverse(_input, _cursor, id);
+    if (swapped == null) return false;
+    _input = swapped;
     return true;
   }
 
-  bool _isArmed(FuncId id) {
-    if (_cursor == 0) return false;
-    final prev = _input[_cursor - 1];
-    if (prev is! FuncTok) return false;
-    return (prev.id == id && id.inverse != null) || prev.id == id.inverse;
-  }
+  bool _isArmed(FuncId id) => isInverseArmed(_input, _cursor, id);
 
   /// Bidirectional walk through the current number literal; true if it already
   /// holds a decimal point (prevents `1.2.3`).

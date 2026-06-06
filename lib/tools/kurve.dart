@@ -67,6 +67,8 @@ class _KurvePageState extends State<KurvePage>
 
   void _recompile() => _f = compileF64(_input, _angleMode, base: _base);
 
+  bool _isArmed(FuncId id) => isInverseArmed(_input, _cursor, id);
+
   // --------------------------------------------------------------------
   // Input
   // --------------------------------------------------------------------
@@ -75,8 +77,20 @@ class _KurvePageState extends State<KurvePage>
     setState(() {
       switch (e) {
         case InsertTok(:final tok):
-          _input = [..._input.sublist(0, _cursor), tok, ..._input.sublist(_cursor)];
-          _cursor++;
+          // Double-tap a trig/hyperbolic key to toggle its inverse (shared
+          // buffer logic with the calculator — see lib/calc/input.dart).
+          final swapped =
+              tok is FuncTok ? toggledInverse(_input, _cursor, tok.id) : null;
+          if (swapped != null) {
+            _input = swapped;
+          } else {
+            _input = [
+              ..._input.sublist(0, _cursor),
+              tok,
+              ..._input.sublist(_cursor),
+            ];
+            _cursor++;
+          }
         case DeleteKey():
           if (_cursor > 0) {
             _input = [..._input]..removeAt(_cursor - 1);
@@ -256,7 +270,7 @@ class _KurvePageState extends State<KurvePage>
             ),
           ),
           const SizedBox(height: 12),
-          KurveKeypad(onKey: _onKey),
+          KurveKeypad(onKey: _onKey, isArmed: _isArmed),
           const SizedBox(height: 16),
           const Divider(),
           const SizedBox(height: 8),
@@ -269,10 +283,11 @@ class _KurvePageState extends State<KurvePage>
           ),
           const SizedBox(height: 16),
           Text(
-            'Ziffern 0–B (dozenal) + Variable x. „Wachsen" lässt die Kurve und '
-            'ihre Fläche von links nach rechts einlaufen — durch steile Stellen '
-            'schnell, durch flache langsam. Ziehen verschiebt, Zwei-Finger-Geste '
-            'zoomt. Winkel in Radiant.',
+            'Ziffern 0–B (dozenal), Variable x und der volle Funktionssatz '
+            '(sin … coth, ln, log, √, !, mod, Konstanten; Doppeltipp = Inverse). '
+            '„Wachsen" lässt die Kurve und ihre Fläche von links nach rechts '
+            'einlaufen — durch steile Stellen schnell, durch flache langsam. '
+            'Ziehen verschiebt, Zwei-Finger-Geste zoomt. Winkel in Radiant.',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),

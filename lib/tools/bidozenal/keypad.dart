@@ -15,6 +15,7 @@ import 'package:geometrie_spielzeug/calc/digits.dart';
 import 'package:geometrie_spielzeug/calc/evaluator.dart';
 import 'package:geometrie_spielzeug/calc/glyphs.dart';
 import 'package:geometrie_spielzeug/calc/input.dart';
+import 'package:geometrie_spielzeug/calc/keypad.dart';
 
 // ===========================================================================
 // Glyph pad (digits)
@@ -108,7 +109,7 @@ class _BidozenalFunctionPadState extends State<BidozenalFunctionPad> {
 
   Widget _pageTabs(ColorScheme scheme) {
     Widget tab(String label, int index) => Expanded(
-          child: _KeyButton(
+          child: CalcKey(
             onTap: () => setState(() => _page = index),
             fill: _page == index
                 ? scheme.primary.withValues(alpha: 0.30)
@@ -167,82 +168,31 @@ class _BidozenalFunctionPadState extends State<BidozenalFunctionPad> {
   }
 
   // ---- f(x) page ---------------------------------------------------------
+  //
+  // The scientific functions/constants come from the shared [ScientificKeypad]
+  // (also used by the curve plotter); only the calculator-specific memory/angle
+  // row stays local.
 
   Widget _fx(ColorScheme scheme) {
-    Widget fn(FuncId id) => _funcKey(id, scheme);
     return Column(
       children: [
-        Expanded(child: Row(children: [
-          fn(FuncId.sin), fn(FuncId.cos), fn(FuncId.tan), fn(FuncId.cot),
-        ])),
-        Expanded(child: Row(children: [
-          fn(FuncId.sinh), fn(FuncId.cosh), fn(FuncId.tanh), fn(FuncId.coth),
-        ])),
-        Expanded(child: Row(children: [
-          fn(FuncId.ln),
-          fn(FuncId.log10),
-          fn(FuncId.sqrt),
-          _text('^', () => widget.onKey(const InsertTok(OpTok(BinOp.pow))), scheme,
-              color: scheme.primary),
-        ])),
-        Expanded(child: Row(children: [
-          _text('n!', () => widget.onKey(const InsertTok(FuncTok(FuncId.fact))), scheme),
-          _text('|x|', () => widget.onKey(const InsertTok(FuncTok(FuncId.abs))), scheme),
-          _text('1/x', () => widget.onKey(const InsertTok(FuncTok(FuncId.recip))), scheme),
-          _text('mod', () => widget.onKey(const InsertTok(OpTok(BinOp.mod))), scheme,
-              color: scheme.primary),
-        ])),
-        Expanded(child: Row(children: [
-          for (final c in ConstId.values)
-            _text(c.label, () => widget.onKey(InsertTok(ConstTok(c))), scheme),
-        ])),
-        Expanded(child: Row(children: [
-          _text('Sto', () => widget.onKey(const StoKey()), scheme),
-          _text('Rcl', () => widget.onKey(const RclKey()), scheme),
-          _text('Mc', () => widget.onKey(const McKey()), scheme),
-          _text(widget.angleLabel, () => widget.onKey(const AngleKey()), scheme,
-              color: scheme.tertiary),
-        ])),
-      ],
-    );
-  }
-
-  Widget _funcKey(FuncId id, ColorScheme scheme) {
-    final armed = widget.isArmed(id);
-    return Expanded(
-      child: _KeyButton(
-        onTap: () => widget.onKey(InsertTok(FuncTok(id))),
-        child: Stack(
-          children: [
-            Center(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  id.label,
-                  style: TextStyle(
-                    color: scheme.onSurfaceVariant,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-            if (armed)
-              Positioned(
-                top: 4,
-                right: 5,
-                child: Container(
-                  width: 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: scheme.tertiary,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ),
-          ],
+        Expanded(
+          flex: 5,
+          child: ScientificKeypad(
+            onKey: widget.onKey,
+            isArmed: widget.isArmed,
+          ),
         ),
-      ),
+        Expanded(
+          child: Row(children: [
+            _text('Sto', () => widget.onKey(const StoKey()), scheme),
+            _text('Rcl', () => widget.onKey(const RclKey()), scheme),
+            _text('Mc', () => widget.onKey(const McKey()), scheme),
+            _text(widget.angleLabel, () => widget.onKey(const AngleKey()), scheme,
+                color: scheme.tertiary),
+          ]),
+        ),
+      ],
     );
   }
 
@@ -255,7 +205,7 @@ class _BidozenalFunctionPadState extends State<BidozenalFunctionPad> {
     bool big = false,
   }) {
     return Expanded(
-      child: _KeyButton(
+      child: CalcKey(
         onTap: onTap,
         fill: fill,
         child: FittedBox(
@@ -299,7 +249,7 @@ class _DigitKey extends StatelessWidget {
         : scheme.onSurfaceVariant.withValues(alpha: 0.26);
     final cornerColor =
         scheme.onSurfaceVariant.withValues(alpha: active ? 0.55 : 0.22);
-    return _KeyButton(
+    return CalcKey(
       onTap: onTap,
       fill: active
           ? null
@@ -331,36 +281,6 @@ class _DigitKey extends StatelessWidget {
             ],
           );
         },
-      ),
-    );
-  }
-}
-
-/// Shared key chrome: rounded surface, ink response, optional fill colour.
-/// A null [onTap] renders a disabled key (no ink, not tappable).
-class _KeyButton extends StatelessWidget {
-  const _KeyButton({required this.child, required this.onTap, this.fill});
-
-  final Widget child;
-  final VoidCallback? onTap;
-  final Color? fill;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.all(3),
-      child: Material(
-        color: fill ?? scheme.surfaceContainerHighest.withValues(alpha: 0.35),
-        borderRadius: BorderRadius.circular(10),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          // Don't grab the keyboard-focus node off the calculator on tap, so
-          // physical-keyboard input keeps working after a screen tap.
-          canRequestFocus: false,
-          child: Center(child: child),
-        ),
       ),
     );
   }
