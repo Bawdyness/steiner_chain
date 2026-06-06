@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import '../widgets/app_drawer.dart';
 import '../widgets/drag_handle.dart';
+import '../widgets/settings_screen.dart';
+import '../widgets/tool_nav.dart';
 
 /// Gemeinsames Skelett für alle Tools: AppBar, Drawer-Slot, Wide/Narrow-
 /// Layout, Drag-Handles für Panel-Breiten, optionales Referenz-Panel
@@ -57,9 +58,11 @@ class _ToolScaffoldState extends State<ToolScaffold> {
     final hasReference = widget.reference != null &&
         widget.reference!.tabs.isNotEmpty;
     return Scaffold(
-      drawer: const AppDrawer(),
       appBar: AppBar(
-        title: Text(widget.title),
+        // Tool selection lives in the bar itself — no leading hamburger.
+        automaticallyImplyLeading: false,
+        titleSpacing: 4,
+        title: const ToolSelectorBar(),
         actions: [
           if (hasReference)
             LayoutBuilder(builder: (context, _) {
@@ -84,6 +87,7 @@ class _ToolScaffoldState extends State<ToolScaffold> {
                 },
               );
             }),
+          const _OverflowMenu(),
         ],
       ),
       body: LayoutBuilder(
@@ -267,6 +271,70 @@ class _ReferenceRoute extends StatelessWidget {
         ),
         body: TabBarView(children: [for (final t in tabs) t.content]),
       ),
+    );
+  }
+}
+
+/// AppBar-Überlaufmenü (⋮): Einstellungen + Über — der frühere Drawer-Fuß.
+/// Liegt selbst im [HubScope] und reicht dessen Daten an den darüber gepushten
+/// Einstellungs-Screen weiter.
+class _OverflowMenu extends StatelessWidget {
+  const _OverflowMenu();
+
+  @override
+  Widget build(BuildContext context) {
+    final scope = HubScope.of(context);
+    return PopupMenuButton<String>(
+      tooltip: 'Mehr',
+      onSelected: (value) {
+        switch (value) {
+          case 'settings':
+            Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => SettingsScreen(
+                allEntries: scope.allEntries,
+                disabledIds: scope.disabledIds,
+                onToggleTool: scope.onToggleTool,
+              ),
+            ));
+          case 'about':
+            showAboutDialog(
+              context: context,
+              applicationName: 'Geometrie-Spielzeug',
+              applicationVersion: '0.1.0',
+              applicationLegalese: '© Eric Naville, 2026.\n'
+                  'Lizenz: CC BY-NC-SA 4.0\n'
+                  '(Frei für nicht-kommerzielle Nutzung)',
+              children: const [
+                SizedBox(height: 12),
+                Text(
+                  'Quelltext und Inhalte stehen unter der Creative-Commons-'
+                  'Lizenz BY-NC-SA 4.0. Du darfst sie weitergeben und '
+                  'bearbeiten, solange du den Urheber nennst, sie nicht '
+                  'kommerziell nutzt und Bearbeitungen unter derselben Lizenz '
+                  'teilst.',
+                ),
+              ],
+            );
+        }
+      },
+      itemBuilder: (context) => const [
+        PopupMenuItem(
+          value: 'settings',
+          child: ListTile(
+            leading: Icon(Icons.tune_outlined),
+            title: Text('Einstellungen'),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        PopupMenuItem(
+          value: 'about',
+          child: ListTile(
+            leading: Icon(Icons.info_outline),
+            title: Text('Über'),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+      ],
     );
   }
 }

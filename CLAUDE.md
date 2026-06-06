@@ -84,11 +84,13 @@ UI-Änderungen werden auf dem Linux-Desktop visuell überprüft, weil weder Test
 
 ## Architecture
 
-### Tool hub (`lib/main.dart`, `lib/widgets/app_drawer.dart`)
+### Tool hub (`lib/main.dart`, `lib/widgets/tool_nav.dart`)
 
-`Hub` owns the active tool index and exposes it via `HubScope` (`InheritedWidget`). Each tool widget returns a `ToolScaffold(...)` (`lib/scaffold/tool_scaffold.dart`) which handles the AppBar, drawer slot, Wide/Narrow layout (`> 700` breakpoint), drag-handles for panel widths, and the optional reference panel (Theorie / Glossar / Symbole / Beispiele tabs). The tool itself only provides `controls` and `canvas` widgets, plus optional `reference: ToolReference(...)`. See "Adding a new tool" below for the recipe.
+`Hub` owns the active tool index and exposes it via `HubScope` (`InheritedWidget`). Each tool widget returns a `ToolScaffold(...)` (`lib/scaffold/tool_scaffold.dart`) which handles the AppBar, Wide/Narrow layout (`> 700` breakpoint), drag-handles for panel widths, and the optional reference panel (Theorie / Glossar / Symbole / Beispiele tabs). The tool itself only provides `controls` and `canvas` widgets, plus optional `reference: ToolReference(...)`. See "Adding a new tool" below for the recipe.
 
-`Hub` filters the tool list by the user's visibility set (managed via "Einstellungen" in the drawer, persisted in `shared_preferences`) before exposing it to `AppDrawer`.
+Tool selection is the **`ToolSelectorBar`** (`lib/widgets/tool_nav.dart`) sitting in the AppBar title row: all visible tools as icon+name tabs, the active one highlighted, horizontally scrollable, tap → `HubScope.onSelect`. There is no hamburger drawer. Settings + About live in the AppBar's `⋮` overflow (`_OverflowMenu` in `tool_scaffold.dart`).
+
+`Hub` filters the tool list by the user's visibility set (managed via "Einstellungen" in the `⋮` menu, persisted in `shared_preferences`) before exposing it as `HubScope.entries`. Because the settings route is pushed *above* the `HubScope`, `_OverflowMenu` reads the scope and passes `allEntries` / `disabledIds` / `onToggleTool` into `SettingsScreen` explicitly (it does not call `HubScope.of`).
 
 ### Live formulas (`flutter_math_fork`)
 
@@ -196,7 +198,7 @@ What you must not do (see "Tool authoring disciplines" above):
 
 ## Tool visibility (user setting)
 
-Users can hide tools they do not want via the drawer entry "Einstellungen". A `Set<String>` of deactivated tool ids is persisted via `shared_preferences`. `Hub` filters `_tools` by the visible set before exposing it to `AppDrawer`. UI enforces that at least one tool stays visible (the last one cannot be deactivated).
+Users can hide tools they do not want via the `⋮` overflow entry "Einstellungen". A `Set<String>` of deactivated tool ids is persisted via `shared_preferences`. `Hub` filters `_tools` by the visible set before exposing it as `HubScope.entries` (what the `ToolSelectorBar` renders). UI enforces that at least one tool stays visible (the last one cannot be deactivated).
 
 This is UX-only — the APK ships with all tools regardless of which are visible. Reducing actual bundle size via Android Play Feature Delivery (Flutter `deferred_components`) is a separate, future option, only worth pursuing if total bundle exceeds ~100 MB. Android-only — iOS and desktop ship the full bundle anyway. Out of scope today.
 

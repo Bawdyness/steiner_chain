@@ -4,11 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:geometrie_spielzeug/tools/bidozenal.dart';
-import 'package:geometrie_spielzeug/widgets/app_drawer.dart';
+import 'package:geometrie_spielzeug/widgets/tool_nav.dart';
 
 /// Mounts BidozenalPage inside a minimal HubScope (the page returns a
-/// ToolScaffold whose drawer reads HubScope, though the drawer itself only
-/// builds when opened).
+/// ToolScaffold whose AppBar tool-bar + overflow menu read HubScope; with
+/// empty entries the bar is simply empty).
 Widget _host() => MaterialApp(
       home: HubScope(
         entries: const [],

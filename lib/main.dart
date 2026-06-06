@@ -7,7 +7,7 @@ import 'tools/kurve.dart';
 import 'tools/steiner.dart';
 import 'tools/unit_circle.dart';
 import 'tools/wachstum.dart';
-import 'widgets/app_drawer.dart';
+import 'widgets/tool_nav.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
