@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'tools/bidozenal.dart';
 import 'tools/steiner.dart';
 import 'tools/unit_circle.dart';
 import 'tools/wachstum.dart';
@@ -59,6 +60,12 @@ const List<ToolEntry> _tools = [
     title: 'Wachstum',
     icon: Icons.trending_up,
     builder: WachstumPage.new,
+  ),
+  ToolEntry(
+    id: 'bidozenal',
+    title: 'Bidozenal-Rechner',
+    icon: Icons.calculate_outlined,
+    builder: BidozenalPage.new,
   ),
 ];
 
