@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'tools/bidozenal.dart';
+import 'tools/kurve.dart';
 import 'tools/steiner.dart';
 import 'tools/unit_circle.dart';
 import 'tools/wachstum.dart';
@@ -66,6 +67,12 @@ const List<ToolEntry> _tools = [
     title: 'Bidozenal-Rechner',
     icon: Icons.calculate_outlined,
     builder: BidozenalPage.new,
+  ),
+  ToolEntry(
+    id: 'kurve',
+    title: 'Kurve',
+    icon: Icons.show_chart,
+    builder: KurvePage.new,
   ),
 ];
 

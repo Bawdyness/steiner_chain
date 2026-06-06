@@ -1,7 +1,10 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:geometrie_spielzeug/tools/bidozenal/digits.dart';
-import 'package:geometrie_spielzeug/tools/bidozenal/evaluator.dart';
-import 'package:geometrie_spielzeug/tools/bidozenal/rational.dart';
+import 'package:geometrie_spielzeug/calc/digits.dart';
+import 'package:geometrie_spielzeug/calc/evaluator.dart';
+import 'package:geometrie_spielzeug/calc/input.dart';
+import 'package:geometrie_spielzeug/calc/keyboard.dart';
+import 'package:geometrie_spielzeug/calc/rational.dart';
 
 /// Builds a digit-only number token list from a bidozenal literal like "1A.6".
 List<Tok> _num(String literal) {
@@ -181,6 +184,50 @@ void main() {
       expect(FuncId.ln.inverse, isNull);
       expect(FuncId.fact.isPostfix, isTrue);
       expect(FuncId.sqrt.isPrefix, isTrue);
+    });
+  });
+
+  group('physical keyboard mapping', () {
+    int? digitOf(KeypadEvent? e) =>
+        (e is InsertTok && e.tok is DigitTok) ? (e.tok as DigitTok).value : null;
+    BinOp? opOf(KeypadEvent? e) =>
+        (e is InsertTok && e.tok is OpTok) ? (e.tok as OpTok).op : null;
+
+    test('digit characters 0-9 and a-n map to digit tokens', () {
+      expect(digitOf(charEvent('5')), 5);
+      expect(digitOf(charEvent('a')), 10);
+      expect(digitOf(charEvent('A')), 10);
+      expect(digitOf(charEvent('n')), 23);
+      expect(digitOf(charEvent('N')), 23);
+    });
+    test('operator + paren + decimal characters', () {
+      expect(opOf(charEvent('+')), BinOp.add);
+      expect(opOf(charEvent('*')), BinOp.mul);
+      expect(opOf(charEvent('^')), BinOp.pow);
+      expect(opOf(charEvent('%')), BinOp.mod);
+      expect(charEvent('('), isA<InsertTok>());
+      expect(charEvent(','), isA<InsertTok>()); // German decimal separator
+      expect((charEvent('.') as InsertTok).tok, isA<DotTok>());
+    });
+    test("'!' is factorial, '=' is equals", () {
+      final bang = charEvent('!');
+      expect((bang as InsertTok).tok, isA<FuncTok>());
+      expect(((bang).tok as FuncTok).id, FuncId.fact);
+      expect(charEvent('='), isA<EqualsKey>());
+    });
+    test('unbound characters return null', () {
+      expect(charEvent('z'), isNull); // z is neither digit nor operator
+      expect(charEvent('@'), isNull);
+    });
+    test('logical keys: enter/backspace/escape/arrows/numpad', () {
+      expect(logicalEvent(LogicalKeyboardKey.enter), isA<EqualsKey>());
+      expect(logicalEvent(LogicalKeyboardKey.backspace), isA<DeleteKey>());
+      expect(logicalEvent(LogicalKeyboardKey.escape), isA<ClearKey>());
+      expect(logicalEvent(LogicalKeyboardKey.arrowLeft), isA<MoveLeft>());
+      expect(logicalEvent(LogicalKeyboardKey.arrowRight), isA<MoveRight>());
+      expect(digitOf(logicalEvent(LogicalKeyboardKey.digit7)), 7);
+      expect(digitOf(logicalEvent(LogicalKeyboardKey.numpad3)), 3);
+      expect(opOf(logicalEvent(LogicalKeyboardKey.numpadAdd)), BinOp.add);
     });
   });
 

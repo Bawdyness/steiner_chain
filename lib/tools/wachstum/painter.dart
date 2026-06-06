@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:geometrie_spielzeug/calc/digits.dart';
+import 'package:geometrie_spielzeug/calc/rational.dart';
 import 'tile.dart';
 
 /// Auto-Zoom-Skala: hält den Datenbereich symmetrisch um Null und rastet
@@ -116,14 +118,20 @@ class WachstumPainter extends CustomPainter {
     required this.layout,
     required this.colorScheme,
     required this.textStyle,
+    this.base = 10,
   });
 
-  final double y0;
+  final Rational y0;
   final List<WachstumTile> tiles;
   final double currentT;
   final WachstumLayout layout;
   final ColorScheme colorScheme;
   final TextStyle textStyle;
+  final int base;
+
+  /// Checkpoint values as doubles for plotting (exact Rationals → pixels).
+  List<double> _ysDouble() =>
+      checkpointValues(y0, tiles).map((r) => r.toDouble()).toList();
 
   /// Hellgrünes Gerüst — analog zu den Pizzaschnitten beim Einheitskreis,
   /// aber mit eigener Farbe, weil das Wachstum-Tool kein Akzent-Farbschema
@@ -188,7 +196,7 @@ class WachstumPainter extends CustomPainter {
   }
 
   void _drawCurve(Canvas canvas) {
-    final ys = checkpointValues(y0, tiles);
+    final ys = _ysDouble();
     if (currentT <= 0) return;
 
     final paint = Paint()
@@ -304,7 +312,7 @@ class WachstumPainter extends CustomPainter {
       final y = i * majorStep;
       _paintLabel(
         canvas,
-        _fmt(y, signedMinus: true),
+        _fmtBase(y, base),
         Offset(layout.plotLeft - 6, layout.yToY(y)),
         Alignment.centerRight,
         style,
@@ -330,13 +338,13 @@ class WachstumPainter extends CustomPainter {
         Offset(x, layout.zeroY + 4),
         tickPaint,
       );
-      _paintLabel(canvas, '$t', Offset(x, layout.zeroY + 16),
-          Alignment.bottomCenter, style);
+      _paintLabel(canvas, renderInBase(Rational.fromInt(t), base),
+          Offset(x, layout.zeroY + 16), Alignment.bottomCenter, style);
     }
   }
 
   void _drawCheckpointDots(Canvas canvas) {
-    final ys = checkpointValues(y0, tiles);
+    final ys = _ysDouble();
     final paint = Paint()
       ..style = PaintingStyle.fill
       ..color = colorScheme.primary.withValues(alpha: 0.55);
@@ -352,7 +360,7 @@ class WachstumPainter extends CustomPainter {
   }
 
   void _drawMarker(Canvas canvas) {
-    final ys = checkpointValues(y0, tiles);
+    final ys = _ysDouble();
     final (pos, value) = _markerState(ys);
     final inside = layout.plotRect.inflate(20).contains(pos);
     if (!inside) return;
@@ -369,7 +377,7 @@ class WachstumPainter extends CustomPainter {
 
     _paintLabel(
       canvas,
-      'y = ${_fmt(value, signedMinus: true)}',
+      'y = ${_fmtBase(value, base)}',
       Offset(pos.dx + 16, pos.dy - 2),
       Alignment.centerLeft,
       textStyle.copyWith(
@@ -436,5 +444,25 @@ class WachstumPainter extends CustomPainter {
       body = abs.toStringAsFixed(2);
     }
     return v < 0 ? '$minus$body' : body;
+  }
+
+  /// Base-aware number label. Base 10 keeps the familiar decimal formatting
+  /// (incl. exponential for extremes); base 12/24 render the digits via the
+  /// shared calc converter (chars 0-9/A-N), two fractional places.
+  static String _fmtBase(double v, int base) {
+    if (base == 10) return _fmt(v, signedMinus: true);
+    if (!v.isFinite) return v.isNaN ? 'NaN' : (v < 0 ? '−∞' : '∞');
+    final parts = doubleToBaseDigits(v.abs(), base: base, fracDigits: 2);
+    final sb = StringBuffer(v < 0 ? '−' : '');
+    for (final d in parts.intDigits) {
+      sb.write(bidozenalChar(d));
+    }
+    if (parts.fracDigits.isNotEmpty) {
+      sb.write('.');
+      for (final d in parts.fracDigits) {
+        sb.write(bidozenalChar(d));
+      }
+    }
+    return sb.toString();
   }
 }

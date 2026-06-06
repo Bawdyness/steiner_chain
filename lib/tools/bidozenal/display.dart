@@ -15,9 +15,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import 'digits.dart';
-import 'evaluator.dart';
-import 'glyphs.dart';
+import 'package:geometrie_spielzeug/calc/digits.dart';
+import 'package:geometrie_spielzeug/calc/evaluator.dart';
+import 'package:geometrie_spielzeug/calc/glyphs.dart';
 import 'result.dart';
 
 class BidozenalDisplay extends StatelessWidget {
@@ -271,6 +271,7 @@ class _DisplayPainter extends CustomPainter {
       OpTok o => _textCell(o.op.symbol, lineH, op),
       LParenTok() => _textCell('(', lineH, muted),
       RParenTok() => _textCell(')', lineH, muted),
+      VarTok() => _textCell('x', lineH, main), // unused here, keeps switch total
       FuncTok f => _textCell(f.id.label, lineH, op),
       ConstTok c => _textCell(c.id.label, lineH, main),
       RatLitTok r => _textCell(r.label, lineH, accent),

@@ -1,9 +1,11 @@
-// Input model + two-rail evaluator for the bidozenal calculator.
+// Input model + two-rail evaluator — shared calc core (lib/calc/), used by the
+// bidozenal calculator and the curve plotter.
 //
 // Two rails, exactly as in the dozenal calculator: an exact BigInt [Rational]
 // rail and an f64 rail. Pure arithmetic (+ − × ÷, integer powers, n!, |x|, 1/x)
 // stays on the exact rail; anything transcendental (trig, log, √, non-integer
-// powers, the constants π/e/φ/√2) collapses to f64 and is shown with an "≈".
+// powers, the constants π/e/φ/√2) and the plot variable `x` collapses to f64
+// and is shown with an "≈".
 //
 // The f64 numerics (`_applyFunc`, the arsinh/tanh/fact guards, the acot
 // convention, the AngleMode handling) are ported verbatim from the dozenal
@@ -179,6 +181,13 @@ class RatLitTok extends Tok {
   final String label;
 }
 
+/// The plot variable `x`. Only meaningful on the f64 rail (the curve plotter
+/// substitutes a concrete x per sample); the exact rail collapses on it, since
+/// a function of x has no single rational value.
+class VarTok extends Tok {
+  const VarTok();
+}
+
 /// Result of evaluating a token stream:
 ///   - [error] != null            → SYNTAX / DOMAIN / DIV BY ZERO,
 ///   - [exact] != null            → exact rational (rail A; [approx] also set),
@@ -189,17 +198,18 @@ typedef EvalResult = ({Rational? exact, double? approx, String? error});
 const int _maxExactExponent = 4096; // guard runaway BigInt powers
 const int _maxFactorial = 4096;
 
-EvalResult evaluate(List<Tok> input, AngleMode angleMode) {
+EvalResult evaluate(List<Tok> input, AngleMode angleMode,
+    {double x = 0, int base = kBase}) {
   if (input.isEmpty) return (exact: null, approx: null, error: null);
   _Node ast;
   try {
-    ast = _Parser(input).parseTop();
+    ast = _Parser(input, base).parseTop();
   } on _EvalException catch (e) {
     return (exact: null, approx: null, error: e.message);
   }
   final double f;
   try {
-    f = _f64(ast, angleMode);
+    f = _f64(ast, angleMode, x);
   } on _EvalException catch (e) {
     return (exact: null, approx: null, error: e.message);
   }
@@ -207,6 +217,26 @@ EvalResult evaluate(List<Tok> input, AngleMode angleMode) {
   if (f.isInfinite) return (exact: null, approx: null, error: 'Division durch 0');
   final exact = _exact(ast);
   return (exact: exact, approx: f, error: null);
+}
+
+/// f64-only evaluation of an already-parsed/validated expression at a given
+/// [x]. Used by the plotter's hot sampling loop — parse once, evaluate many.
+/// Returns NaN on parse/eval failure (caller treats NaN as a curve gap).
+double Function(double) compileF64(List<Tok> input, AngleMode angleMode,
+    {int base = kBase}) {
+  final _Node ast;
+  try {
+    ast = _Parser(input, base).parseTop();
+  } on _EvalException {
+    return (_) => double.nan;
+  }
+  return (x) {
+    try {
+      return _f64(ast, angleMode, x);
+    } on _EvalException {
+      return double.nan;
+    }
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -224,6 +254,8 @@ class _Const extends _Node {
   _Const(this.value);
   final double value;
 }
+
+class _Var extends _Node {}
 
 class _Bin extends _Node {
   _Bin(this.op, this.l, this.r);
@@ -257,6 +289,8 @@ Rational? _exact(_Node n) {
       return n.value;
     case _Const():
       return null; // irrational
+    case _Var():
+      return null; // a function of x has no single exact value
     case _Neg():
       final c = _exact(n.child);
       return c?.negated;
@@ -311,17 +345,19 @@ Rational? _exact(_Node n) {
 // f64 rail
 // ---------------------------------------------------------------------------
 
-double _f64(_Node n, AngleMode mode) {
+double _f64(_Node n, AngleMode mode, double x) {
   switch (n) {
     case _Num():
       return n.value.toDouble();
     case _Const():
       return n.value;
+    case _Var():
+      return x;
     case _Neg():
-      return -_f64(n.child, mode);
+      return -_f64(n.child, mode, x);
     case _Bin():
-      final l = _f64(n.l, mode);
-      final r = _f64(n.r, mode);
+      final l = _f64(n.l, mode, x);
+      final r = _f64(n.r, mode, x);
       return switch (n.op) {
         BinOp.add => l + r,
         BinOp.sub => l - r,
@@ -331,9 +367,9 @@ double _f64(_Node n, AngleMode mode) {
         BinOp.pow => math.pow(l, r).toDouble(),
       };
     case _Pow():
-      return math.pow(_f64(n.base, mode), _f64(n.exp, mode)).toDouble();
+      return math.pow(_f64(n.base, mode, x), _f64(n.exp, mode, x)).toDouble();
     case _Func():
-      return _applyFunc(n.id, _f64(n.arg, mode), mode);
+      return _applyFunc(n.id, _f64(n.arg, mode, x), mode);
   }
 }
 
@@ -429,8 +465,9 @@ class _EvalException implements Exception {
 }
 
 class _Parser {
-  _Parser(this.toks);
+  _Parser(this.toks, [this.base = kBase]);
   final List<Tok> toks;
+  final int base;
   int _i = 0;
 
   Tok? get _peek => _i < toks.length ? toks[_i] : null;
@@ -477,6 +514,7 @@ class _Parser {
       t is LParenTok ||
       t is ConstTok ||
       t is RatLitTok ||
+      t is VarTok ||
       (t is FuncTok && t.id.isPrefix);
 
   _Node _unary() {
@@ -531,6 +569,10 @@ class _Parser {
       _advance();
       return _Num(t.value);
     }
+    if (t is VarTok) {
+      _advance();
+      return _Var();
+    }
     if (t is FuncTok && t.id.isPrefix) {
       _advance();
       return _Func(t.id, _primary());
@@ -540,7 +582,7 @@ class _Parser {
   }
 
   _Node _number() {
-    final b = BigInt.from(kBase);
+    final b = BigInt.from(base);
     var intVal = BigInt.zero;
     var sawDigit = false;
     while (_peek is DigitTok) {

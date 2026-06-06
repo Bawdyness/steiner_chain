@@ -11,76 +11,29 @@
 
 import 'package:flutter/material.dart';
 
-import 'digits.dart';
-import 'evaluator.dart';
-import 'glyphs.dart';
-
-/// What a key press asks the page to do. (Named `KeypadEvent` to avoid the
-/// clash with Flutter's hardware `KeyEvent`.)
-sealed class KeypadEvent {
-  const KeypadEvent();
-}
-
-class InsertTok extends KeypadEvent {
-  const InsertTok(this.tok);
-  final Tok tok;
-}
-
-class EqualsKey extends KeypadEvent {
-  const EqualsKey();
-}
-
-class ClearKey extends KeypadEvent {
-  const ClearKey();
-}
-
-class DeleteKey extends KeypadEvent {
-  const DeleteKey();
-}
-
-class MoveLeft extends KeypadEvent {
-  const MoveLeft();
-}
-
-class MoveRight extends KeypadEvent {
-  const MoveRight();
-}
-
-class AnsKey extends KeypadEvent {
-  const AnsKey();
-}
-
-class StoKey extends KeypadEvent {
-  const StoKey();
-}
-
-class RclKey extends KeypadEvent {
-  const RclKey();
-}
-
-class McKey extends KeypadEvent {
-  const McKey();
-}
-
-class AngleKey extends KeypadEvent {
-  const AngleKey();
-}
+import 'package:geometrie_spielzeug/calc/digits.dart';
+import 'package:geometrie_spielzeug/calc/evaluator.dart';
+import 'package:geometrie_spielzeug/calc/glyphs.dart';
+import 'package:geometrie_spielzeug/calc/input.dart';
 
 // ===========================================================================
 // Glyph pad (digits)
 // ===========================================================================
 
 class BidozenalGlyphPad extends StatelessWidget {
-  const BidozenalGlyphPad({super.key, required this.onKey});
+  const BidozenalGlyphPad({super.key, required this.onKey, required this.base});
 
   final void Function(KeypadEvent) onKey;
+
+  /// Active number base (10/12/24). All 24 glyphs are always rendered; digits
+  /// with value >= [base] are greyed out and non-tappable.
+  final int base;
 
   static const int _rows = 8;
   static const int _cols = 3;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.all(6),
       child: Column(
@@ -90,7 +43,7 @@ class BidozenalGlyphPad extends StatelessWidget {
               child: Row(
                 children: [
                   for (var col = 0; col < _cols; col++)
-                    Expanded(child: _cell(rowTop, col, scheme)),
+                    Expanded(child: _cell(rowTop, col)),
                 ],
               ),
             ),
@@ -99,13 +52,14 @@ class BidozenalGlyphPad extends StatelessWidget {
     );
   }
 
-  Widget _cell(int rowTop, int col, ColorScheme scheme) {
+  Widget _cell(int rowTop, int col) {
     final rBottom = _rows - 1 - rowTop;
     final v = (rBottom * _cols + col + 1) % 24;
+    final active = v < base;
     return _DigitKey(
       value: v,
-      color: scheme.onSurface,
-      onTap: () => onKey(InsertTok(DigitTok(v))),
+      active: active,
+      onTap: active ? () => onKey(InsertTok(DigitTok(v))) : null,
     );
   }
 }
@@ -327,19 +281,29 @@ class _BidozenalFunctionPadState extends State<BidozenalFunctionPad> {
 class _DigitKey extends StatelessWidget {
   const _DigitKey({
     required this.value,
-    required this.color,
+    required this.active,
     required this.onTap,
   });
 
   final int value;
-  final Color color;
-  final VoidCallback onTap;
+
+  /// False when [value] >= the active base: greyed out, [onTap] null.
+  final bool active;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final glyphColor = active
+        ? scheme.onSurface
+        : scheme.onSurfaceVariant.withValues(alpha: 0.26);
+    final cornerColor =
+        scheme.onSurfaceVariant.withValues(alpha: active ? 0.55 : 0.22);
     return _KeyButton(
       onTap: onTap,
+      fill: active
+          ? null
+          : scheme.surfaceContainerHighest.withValues(alpha: 0.12),
       child: LayoutBuilder(
         builder: (context, c) {
           final glyphSize = c.biggest.shortestSide * 0.66;
@@ -351,7 +315,7 @@ class _DigitKey extends StatelessWidget {
                 child: Text(
                   bidozenalChar(value),
                   style: TextStyle(
-                    color: scheme.onSurfaceVariant.withValues(alpha: 0.55),
+                    color: cornerColor,
                     fontSize: 11,
                     fontWeight: FontWeight.w500,
                   ),
@@ -361,7 +325,7 @@ class _DigitKey extends StatelessWidget {
                 child: BidozenalGlyph(
                   value: value,
                   size: glyphSize,
-                  color: color,
+                  color: glyphColor,
                 ),
               ),
             ],
@@ -373,11 +337,12 @@ class _DigitKey extends StatelessWidget {
 }
 
 /// Shared key chrome: rounded surface, ink response, optional fill colour.
+/// A null [onTap] renders a disabled key (no ink, not tappable).
 class _KeyButton extends StatelessWidget {
   const _KeyButton({required this.child, required this.onTap, this.fill});
 
   final Widget child;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final Color? fill;
 
   @override
@@ -391,6 +356,9 @@ class _KeyButton extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
+          // Don't grab the keyboard-focus node off the calculator on tap, so
+          // physical-keyboard input keeps working after a screen tap.
+          canRequestFocus: false,
           child: Center(child: child),
         ),
       ),

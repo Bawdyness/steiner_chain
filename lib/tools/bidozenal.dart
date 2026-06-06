@@ -11,16 +11,19 @@
 // formula; the reference panel carries the theory and a glyph chart.
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 
 import '../scaffold/tool_scaffold.dart';
 import '../theory.dart';
-import 'bidozenal/digits.dart';
+import 'package:geometrie_spielzeug/calc/digits.dart';
+import 'package:geometrie_spielzeug/calc/evaluator.dart';
+import 'package:geometrie_spielzeug/calc/glyphs.dart';
+import 'package:geometrie_spielzeug/calc/input.dart';
+import 'package:geometrie_spielzeug/calc/keyboard.dart';
+import 'package:geometrie_spielzeug/calc/rational.dart';
 import 'bidozenal/display.dart';
-import 'bidozenal/evaluator.dart';
-import 'bidozenal/glyphs.dart';
 import 'bidozenal/keypad.dart';
-import 'bidozenal/rational.dart';
 import 'bidozenal/result.dart';
 
 class BidozenalPage extends StatefulWidget {
@@ -53,7 +56,33 @@ class _BidozenalPageState extends State<BidozenalPage> {
   String? _errorMsg;
 
   bool _glyphMode = true;
+
+  /// Active number base: 10 (Dezimal), 12 (Dozenal) or 24 (Bidozenal). One
+  /// calculator outwardly; behind it three bases. Changing it clears the
+  /// expression (digit sequences are base-dependent).
+  int _base = 24;
+
   AngleMode _angleMode = AngleMode.deg;
+
+  /// Physical-keyboard focus for this tool (autofocus while it is the active
+  /// tool). Numbers + arithmetic route through the same [_onKey] path as taps.
+  final FocusNode _kbFocus = FocusNode(debugLabel: 'bidozenal-keyboard');
+
+  @override
+  void dispose() {
+    _kbFocus.dispose();
+    super.dispose();
+  }
+
+  KeyEventResult _handleKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    final e = eventForKey(event, base: _base);
+    if (e == null) return KeyEventResult.ignored;
+    _onKey(e);
+    return KeyEventResult.handled;
+  }
 
   // --------------------------------------------------------------------
   // Key dispatch — port of the dozenal handleClick error-guard.
@@ -242,7 +271,7 @@ class _BidozenalPageState extends State<BidozenalPage> {
       _resultActive = true;
       return;
     }
-    final res = evaluate(_input, _angleMode);
+    final res = evaluate(_input, _angleMode, base: _base);
     if (res.error != null) {
       _errorMsg = res.error; // keep input + cursor for in-place repair
       _lastAns = null;
@@ -251,7 +280,7 @@ class _BidozenalPageState extends State<BidozenalPage> {
     }
     _errorMsg = null;
     _lastAns = res.exact; // null on f64 fallback
-    _lastFormatted = formatResult(res);
+    _lastFormatted = formatResult(res, base: _base);
     _resultActive = true;
   }
 
@@ -261,7 +290,7 @@ class _BidozenalPageState extends State<BidozenalPage> {
 
   @override
   Widget build(BuildContext context) {
-    final live = evaluate(_input, _angleMode);
+    final live = evaluate(_input, _angleMode, base: _base);
     return ToolScaffold(
       title: 'Bidozenal-Rechner',
       controls: _buildControls(live),
@@ -282,19 +311,38 @@ class _BidozenalPageState extends State<BidozenalPage> {
     if (_errorMsg != null) return BidozResult(error: _errorMsg);
     if (_input.isEmpty) return const BidozResult(); // 0
     if (live.error == null && (live.exact != null || live.approx != null)) {
-      return formatResult(live);
+      return formatResult(live, base: _base);
     }
     return null; // incomplete → blank
   }
 
   Widget _buildCanvas(EvalResult live) {
+    // Focus + autofocus so the laptop keyboard drives the calculator; the
+    // Listener re-grabs focus if a tap moved it elsewhere (e.g. the controls).
+    return Focus(
+      focusNode: _kbFocus,
+      autofocus: true,
+      onKeyEvent: _handleKey,
+      child: Listener(
+        onPointerDown: (_) {
+          if (!_kbFocus.hasFocus) _kbFocus.requestFocus();
+        },
+        child: _buildCalculator(live),
+      ),
+    );
+  }
+
+  Widget _buildCalculator(EvalResult live) {
     return LayoutBuilder(
       builder: (context, c) {
         final glyphW = (c.maxHeight * 3 / 8).clamp(120.0, c.maxWidth * 0.5);
         final displayH = (c.maxHeight * 0.30).clamp(88.0, 240.0);
         return Row(
           children: [
-            SizedBox(width: glyphW, child: BidozenalGlyphPad(onKey: _onKey)),
+            SizedBox(
+              width: glyphW,
+              child: BidozenalGlyphPad(onKey: _onKey, base: _base),
+            ),
             const VerticalDivider(width: 1, color: Color(0xFF333333)),
             Expanded(
               child: Column(
@@ -344,6 +392,22 @@ class _BidozenalPageState extends State<BidozenalPage> {
             onSelectionChanged: (s) => setState(() => _glyphMode = s.first),
           ),
           const SizedBox(height: 20),
+          Text('Zahlensystem', style: theme.textTheme.labelMedium),
+          const SizedBox(height: 8),
+          SegmentedButton<int>(
+            segments: const [
+              ButtonSegment(value: 10, label: Text('Dez 10')),
+              ButtonSegment(value: 12, label: Text('Doz 12')),
+              ButtonSegment(value: 24, label: Text('Bidoz 24')),
+            ],
+            selected: {_base},
+            showSelectedIcon: false,
+            onSelectionChanged: (s) => setState(() {
+              _base = s.first;
+              _clearAll(); // digit sequences are base-dependent → start fresh
+            }),
+          ),
+          const SizedBox(height: 20),
           const Divider(),
           const SizedBox(height: 8),
           Text('Wert', style: theme.textTheme.labelMedium),
@@ -369,12 +433,7 @@ class _BidozenalPageState extends State<BidozenalPage> {
           ] else
             Text('Ausdruck unvollständig …', style: theme.textTheme.bodySmall),
           const SizedBox(height: 24),
-          Text(
-            'Basis 24 = 2³·3 = 4!. Jeder Bruch mit Nenner aus 2en und 3en '
-            'terminiert — Periode (überstrichen) nur bei einer 5 im Nenner. '
-            'Trig/Log/√ rechnen f64 und werden mit ≈ markiert.',
-            style: theme.textTheme.bodySmall,
-          ),
+          Text(_baseNote(), style: theme.textTheme.bodySmall),
         ],
       ),
     );
@@ -437,6 +496,22 @@ class _BidozenalPageState extends State<BidozenalPage> {
       s = s.replaceAll(RegExp(r'0+$'), '').replaceAll(RegExp(r'\.$'), '');
     }
     return s;
+  }
+
+  /// Base-specific footnote under the value panel.
+  String _baseNote() {
+    switch (_base) {
+      case 10:
+        return 'Dezimal (Basis 10). Aktiv sind nur die Ziffern 0–9; die '
+            'übrigen Glyphen sind ausgegraut. Trig/Log/√ rechnen f64 (≈).';
+      case 12:
+        return 'Dozenal (Basis 12 = 2²·3). Aktiv sind 0–B; jeder Bruch mit '
+            'Nenner aus 2en und 3en terminiert. Trig/Log/√ rechnen f64 (≈).';
+      default:
+        return 'Bidozenal (Basis 24 = 2³·3 = 4!). Alle 24 Ziffern aktiv; '
+            'Periode (überstrichen) nur bei einer 5 im Nenner. Trig/Log/√ '
+            'rechnen f64 (≈).';
+    }
   }
 }
 

@@ -3,8 +3,9 @@
 // formatF64Result + PeriodMeta. The display painter consumes [BidozResult]
 // without re-touching the rational engine.
 
-import 'evaluator.dart';
-import 'rational.dart';
+import 'package:geometrie_spielzeug/calc/digits.dart';
+import 'package:geometrie_spielzeug/calc/evaluator.dart';
+import 'package:geometrie_spielzeug/calc/rational.dart';
 
 /// Longest period rendered with an overline. Longer periods are truncated and
 /// flagged with [periodCapped] → the display shows the State-C raised dots.
@@ -42,13 +43,14 @@ class BidozResult {
   bool get isError => error != null;
 }
 
-/// Builds the display decomposition. Empty input renders as `0`.
-BidozResult formatResult(EvalResult res) {
+/// Builds the display decomposition in [base] (10/12/24). Empty input renders
+/// as `0`.
+BidozResult formatResult(EvalResult res, {int base = kBase}) {
   if (res.error != null) return BidozResult(error: res.error);
 
   final exact = res.exact;
   if (exact != null) {
-    final e = exact.expand(base: 24);
+    final e = exact.expand(base: base);
     final capped = e.period.length > maxPeriodDisplay;
     final shown =
         capped ? e.period.sublist(0, maxPeriodDisplay) : e.period;
@@ -64,7 +66,8 @@ BidozResult formatResult(EvalResult res) {
 
   final approx = res.approx;
   if (approx != null) {
-    final parts = doubleToBaseDigits(approx, base: 24, fracDigits: f64FracDigits);
+    final parts =
+        doubleToBaseDigits(approx, base: base, fracDigits: f64FracDigits);
     return BidozResult(
       negative: approx < 0 && approx.abs() > 1e-12,
       intDigits: parts.intDigits,
