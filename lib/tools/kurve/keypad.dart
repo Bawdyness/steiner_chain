@@ -7,12 +7,16 @@
 import 'package:flutter/material.dart';
 
 import 'package:geometrie_spielzeug/calc/evaluator.dart';
-import 'package:geometrie_spielzeug/calc/glyphs.dart';
 import 'package:geometrie_spielzeug/calc/input.dart';
 import 'package:geometrie_spielzeug/calc/keypad.dart';
 
 class KurveKeypad extends StatelessWidget {
-  const KurveKeypad({super.key, required this.onKey, required this.isArmed});
+  const KurveKeypad({
+    super.key,
+    required this.onKey,
+    required this.isArmed,
+    required this.base,
+  });
 
   final void Function(KeypadEvent) onKey;
 
@@ -20,16 +24,15 @@ class KurveKeypad extends StatelessWidget {
   /// (sin → sin⁻¹). Drives the armed dot in the shared [ScientificKeypad].
   final bool Function(FuncId) isArmed;
 
+  /// Active number base (10/12/24) — drives which digit keys are shown.
+  final int base;
+
   static const double _rowHeight = 46;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    Widget digit(int v) => CalcKey(
-          onTap: () => onKey(InsertTok(DigitTok(v))),
-          child: BidozenalGlyph(value: v, size: 26, color: scheme.onSurface),
-        );
     Widget txt(String label, KeypadEvent e, {Color? color, bool italic = false}) =>
         CalcKey(
           onTap: () => onKey(e),
@@ -59,22 +62,33 @@ class KurveKeypad extends StatelessWidget {
       children: [
         row([
           txt('x', const InsertTok(VarTok()), color: scheme.tertiary, italic: true),
-          txt('(', const InsertTok(LParenTok())),
-          txt(')', const InsertTok(RParenTok())),
+          txt('.', const InsertTok(DotTok())),
+          txt('^', const InsertTok(OpTok(BinOp.pow)), color: scheme.primary),
           txt('⌫', const DeleteKey()),
           txt('AC', const ClearKey(), color: scheme.error),
         ]),
-        row([digit(0), digit(1), digit(2), digit(3)]),
-        row([digit(4), digit(5), digit(6), digit(7)]),
-        row([digit(8), digit(9), digit(10), digit(11)]),
+        // Number block shared with Wachstum: 3 columns, bottom-up, base-aware.
+        GlyphDigitPad(
+          base: base,
+          onDigit: (d) => onKey(InsertTok(DigitTok(d))),
+          rowHeight: _rowHeight,
+        ),
         row([op(BinOp.add), op(BinOp.sub), op(BinOp.mul), op(BinOp.div)]),
         row([
-          txt('.', const InsertTok(DotTok())),
+          txt('(', const InsertTok(LParenTok())),
+          txt(')', const InsertTok(RParenTok())),
           txt('◀', const MoveLeft()),
           txt('▶', const MoveRight()),
         ]),
         // Shared with the calculator's f(x) page — one definition, no drift.
-        ScientificKeypad(onKey: onKey, isArmed: isArmed, rowHeight: _rowHeight),
+        // Collapsible here (hyperbolic … constants fold away) to save space.
+        ScientificKeypad(
+          onKey: onKey,
+          isArmed: isArmed,
+          rowHeight: _rowHeight,
+          collapsible: true,
+          trailingOp: BinOp.par, // ⊕ parallel addition (^ moved to the top row)
+        ),
       ],
     );
   }

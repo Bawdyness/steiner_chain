@@ -10,7 +10,61 @@
 import 'package:flutter/material.dart';
 
 import 'evaluator.dart';
+import 'glyphs.dart';
 import 'input.dart';
+
+/// The number block shared by Wachstum and the curve plotter: digits
+/// `0..base-1` as glyphs in 3 columns, bottom row `1·2·3` rising to the highest
+/// digit then `0` at the end (the dozenal_calc_flutter layout). Trailing empty
+/// cells (e.g. base 10) keep the grid aligned. Lives in a scroll view, so each
+/// row is a fixed [rowHeight].
+class GlyphDigitPad extends StatelessWidget {
+  const GlyphDigitPad({
+    super.key,
+    required this.base,
+    required this.onDigit,
+    required this.rowHeight,
+  });
+
+  final int base;
+  final void Function(int value) onDigit;
+  final double rowHeight;
+
+  static const int _cols = 3;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final order = [for (var d = 1; d < base; d++) d, 0]; // 1..base-1, then 0
+    final rowCount = (order.length + _cols - 1) ~/ _cols;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var r = 0; r < rowCount; r++)
+          SizedBox(
+            height: rowHeight,
+            child: Row(
+              children: [
+                for (var c = 0; c < _cols; c++)
+                  Expanded(
+                    child: _cell((rowCount - 1 - r) * _cols + c, order, scheme),
+                  ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _cell(int idx, List<int> order, ColorScheme scheme) {
+    if (idx >= order.length) return const SizedBox();
+    final value = order[idx];
+    return CalcKey(
+      onTap: () => onDigit(value),
+      child: BidozenalGlyph(value: value, size: 24, color: scheme.onSurface),
+    );
+  }
+}
 
 /// Shared key chrome: rounded surface, ink response, optional [fill] colour.
 /// A null [onTap] renders a disabled key (no ink, not tappable).
@@ -48,26 +102,44 @@ class CalcKey extends StatelessWidget {
 ///
 /// Rows fill the available height when [rowHeight] is null (each row is
 /// [Expanded]); pass a fixed [rowHeight] to sit inside a scroll view.
-class ScientificKeypad extends StatelessWidget {
+class ScientificKeypad extends StatefulWidget {
   const ScientificKeypad({
     super.key,
     required this.onKey,
     required this.isArmed,
     this.rowHeight,
+    this.collapsible = false,
+    this.trailingOp = BinOp.pow,
   });
 
   final void Function(KeypadEvent) onKey;
   final bool Function(FuncId) isArmed;
   final double? rowHeight;
 
+  /// The 4th key in the ln/log/√ row: `^` (calculator) or `⊕` (plotter).
+  final BinOp trailingOp;
+
+  /// When true, only the trig row stays visible; the hyperbolic, log/√/^,
+  /// n!/|x|/1/x/mod and constant rows fold behind a "Mehr Funktionen" toggle
+  /// (default collapsed) to save vertical space. Requires a fixed [rowHeight].
+  final bool collapsible;
+
+  @override
+  State<ScientificKeypad> createState() => _ScientificKeypadState();
+}
+
+class _ScientificKeypadState extends State<ScientificKeypad> {
+  bool _expanded = false;
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final rows = <List<Widget>>[
-      [
-        for (final f in const [FuncId.sin, FuncId.cos, FuncId.tan, FuncId.cot])
-          _func(f, scheme),
-      ],
+    final trig = [
+      for (final f in const [FuncId.sin, FuncId.cos, FuncId.tan, FuncId.cot])
+        _func(f, scheme),
+    ];
+    // Hyperbolic … constants (the part Kurve folds away).
+    final advanced = <List<Widget>>[
       [
         for (final f in const [
           FuncId.sinh,
@@ -81,7 +153,7 @@ class ScientificKeypad extends StatelessWidget {
         _func(FuncId.ln, scheme),
         _func(FuncId.log10, scheme),
         _func(FuncId.sqrt, scheme),
-        _op(BinOp.pow, scheme),
+        _op(widget.trailingOp, scheme),
       ],
       [
         _func(FuncId.fact, scheme),
@@ -94,21 +166,46 @@ class ScientificKeypad extends StatelessWidget {
           _key(c.label, InsertTok(ConstTok(c)), scheme),
       ],
     ];
+
+    if (!widget.collapsible) {
+      return Column(
+        mainAxisSize:
+            widget.rowHeight == null ? MainAxisSize.max : MainAxisSize.min,
+        children: [for (final r in [trig, ...advanced]) _row(r)],
+      );
+    }
+
     return Column(
-      mainAxisSize: rowHeight == null ? MainAxisSize.max : MainAxisSize.min,
-      children: [for (final r in rows) _row(r)],
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _row(trig),
+        _toggle(scheme),
+        if (_expanded) for (final r in advanced) _row(r),
+      ],
     );
   }
 
+  Widget _toggle(ColorScheme scheme) => SizedBox(
+        height: widget.rowHeight,
+        child: TextButton.icon(
+          onPressed: () => setState(() => _expanded = !_expanded),
+          icon: Icon(_expanded ? Icons.expand_less : Icons.expand_more, size: 20),
+          label: Text(_expanded ? 'Weniger' : 'Mehr Funktionen'),
+          style: TextButton.styleFrom(foregroundColor: scheme.onSurfaceVariant),
+        ),
+      );
+
   Widget _row(List<Widget> keys) {
     final row = Row(children: [for (final k in keys) Expanded(child: k)]);
-    return rowHeight == null
+    return widget.rowHeight == null
         ? Expanded(child: row)
-        : SizedBox(height: rowHeight, child: row);
+        : SizedBox(height: widget.rowHeight, child: row);
   }
 
-  Widget _func(FuncId id, ColorScheme scheme) =>
-      _key(_keyLabel(id), InsertTok(FuncTok(id)), scheme, armed: isArmed(id));
+  Widget _func(FuncId id, ColorScheme scheme) => _key(
+        _keyLabel(id), InsertTok(FuncTok(id)), scheme,
+        armed: widget.isArmed(id),
+      );
 
   Widget _op(BinOp o, ColorScheme scheme) =>
       _key(o.symbol, InsertTok(OpTok(o)), scheme, color: scheme.primary);
@@ -121,7 +218,7 @@ class ScientificKeypad extends StatelessWidget {
     bool armed = false,
   }) {
     return CalcKey(
-      onTap: () => onKey(event),
+      onTap: () => widget.onKey(event),
       child: Stack(
         children: [
           Center(

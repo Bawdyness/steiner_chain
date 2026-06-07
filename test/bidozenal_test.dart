@@ -113,6 +113,17 @@ void main() {
       expect(_exact([..._num('7'), const OpTok(BinOp.mod), ..._num('3')]),
         Rational.fromInt(1));
     });
+    test('parallel add 3 ⊕ 6 = 2 exact', () {
+      // a⊕b = a·b/(a+b) = 18/9 = 2.
+      expect(_exact([..._num('3'), const OpTok(BinOp.par), ..._num('6')]),
+        Rational.fromInt(2));
+    });
+    test('parallel add collapses when a+b = 0', () {
+      final t = [
+        ..._num('3'), const OpTok(BinOp.par), const OpTok(BinOp.sub), ..._num('3'),
+      ];
+      expect(evaluate(t, AngleMode.deg).exact, isNull);
+    });
   });
 
   group('f64 fallback (rail B)', () {

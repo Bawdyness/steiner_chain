@@ -23,6 +23,7 @@ extension WachstumBinOp on BinOp {
         BinOp.div => r'\div',
         BinOp.mod => r'\bmod',
         BinOp.pow => '^',
+        BinOp.par => r'\oplus',
       };
 
   /// Applies the operator. Division by zero returns null (the editor forbids a
@@ -34,6 +35,7 @@ extension WachstumBinOp on BinOp {
         BinOp.div => current.div(value),
         BinOp.mod => value.isZero ? null : current.sub(value.mul(_floorDiv(current, value))),
         BinOp.pow => null, // not offered by Wachstum
+        BinOp.par => null, // not offered by Wachstum
       };
 }
 

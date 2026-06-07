@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:geometrie_spielzeug/calc/evaluator.dart';
+import 'package:geometrie_spielzeug/calc/glyphs.dart';
 import 'package:geometrie_spielzeug/calc/input.dart';
 import 'package:geometrie_spielzeug/calc/keypad.dart';
 import 'package:geometrie_spielzeug/tools/kurve/keypad.dart';
@@ -72,29 +73,69 @@ void main() {
     });
   });
 
-  group('Kurve keypad now offers the full shared function set', () {
-    testWidgets('exposes the advanced keys and emits them', (tester) async {
+  group('Kurve keypad: trig visible, advanced behind the expander', () {
+    testWidgets('the expander reveals the full shared function set', (
+      tester,
+    ) async {
       final events = <KeypadEvent>[];
       await tester.pumpWidget(MaterialApp(
         home: Scaffold(
           body: SizedBox(
             width: 360,
-            height: 760,
+            height: 820,
             child: SingleChildScrollView(
-              child: KurveKeypad(onKey: events.add, isArmed: (_) => false),
+              child:
+                KurveKeypad(onKey: events.add, isArmed: (_) => false, base: 12),
             ),
           ),
         ),
       ));
 
-      // These were absent from the old hand-rolled Kurve keypad.
-      for (final label in const ['sinh', 'coth', 'cot', 'mod', '√']) {
+      // Trig row is always shown; the advanced functions start collapsed.
+      expect(find.text('cos'), findsOneWidget);
+      expect(find.text('cot'), findsOneWidget);
+      expect(find.text('sinh'), findsNothing);
+
+      await tester.tap(find.text('Mehr Funktionen'));
+      await tester.pumpAndSettle();
+      for (final label in const ['sinh', 'coth', 'mod', '√']) {
         expect(find.text(label), findsOneWidget, reason: 'missing "$label"');
       }
 
       await tester.tap(find.text('cos'));
       await tester.pump();
       expect(_funcOf(events.single), FuncId.cos);
+    });
+  });
+
+  group('GlyphDigitPad (shared number block, Wachstum + Kurve)', () {
+    Future<void> pump(WidgetTester tester, int base, void Function(int) onDigit) =>
+        tester.pumpWidget(MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 240,
+              height: 540,
+              child: GlyphDigitPad(base: base, onDigit: onDigit, rowHeight: 44),
+            ),
+          ),
+        ));
+
+    testWidgets('renders exactly base-many digit glyphs', (tester) async {
+      await pump(tester, 10, (_) {});
+      expect(find.byType(BidozenalGlyph), findsNWidgets(10));
+      await pump(tester, 12, (_) {});
+      expect(find.byType(BidozenalGlyph), findsNWidgets(12));
+      await pump(tester, 24, (_) {});
+      expect(find.byType(BidozenalGlyph), findsNWidgets(24));
+    });
+
+    testWidgets('bottom-up order: top-left is the highest digit', (tester) async {
+      final taps = <int>[];
+      await pump(tester, 12, taps.add);
+      // base 12 top row is A·B·0 → first glyph is A (=10).
+      await tester.tap(find.byType(BidozenalGlyph).first);
+      await tester.pump();
+      expect(taps.single, 10);
     });
   });
 }

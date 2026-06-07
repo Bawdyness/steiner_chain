@@ -63,17 +63,23 @@ class PlotGeom {
 
 class PlotPainter extends CustomPainter {
   PlotPainter({
-    required this.f,
+    required this.curves,
     required this.view,
     required this.sweepX,
     required this.scheme,
     required this.textStyle,
     this.base = 12,
     this.hasFunction = true,
+    this.shape,
+    this.shapeColor = const Color(0xFFF28B82),
+    this.shapeTrace = 1.0,
+    this.shapePulse = 1.0,
   });
 
-  /// Compiled function; returns NaN where undefined (drawn as a gap).
-  final double Function(double) f;
+  /// One or more compiled curves with their colours. Each `fn` returns NaN
+  /// where undefined (drawn as a gap). A single curve also gets an area fill;
+  /// multiple curves are drawn as plain coloured lines.
+  final List<({double Function(double) fn, Color color})> curves;
   final PlotView view;
 
   /// Curve is drawn for x ≤ sweepX (the growth front).
@@ -83,6 +89,18 @@ class PlotPainter extends CustomPainter {
   final int base;
   final bool hasFunction;
 
+  /// A closed parametric figure in data coordinates (the "Formen" presets).
+  /// When non-null it is drawn instead of [curves]: the points are an even loop
+  /// already centred and scaled to the view.
+  final List<Offset>? shape;
+  final Color shapeColor;
+
+  /// Fraction (0..1) of the figure's outline to draw — < 1 traces it (Schlange).
+  final double shapeTrace;
+
+  /// Scale multiplier about the origin — pulses the figure in place (Schlaufe).
+  final double shapePulse;
+
   static const Color _gridColor = Color(0xFF9CCC65); // same green as Wachstum
 
   @override
@@ -90,12 +108,67 @@ class PlotPainter extends CustomPainter {
     final g = PlotGeom(size, view);
     _drawGrid(canvas, g);
     _drawAxes(canvas, g);
-    if (hasFunction) {
+    if (shape != null) {
+      _drawShape(canvas, g);
+    } else if (hasFunction) {
       canvas.save();
       canvas.clipRect(Rect.fromLTRB(g.left, g.top, g.right, g.bottom));
-      _drawCurve(canvas, g);
+      final single = curves.length == 1;
+      for (final c in curves) {
+        _drawCurve(canvas, g, c.fn, c.color, fill: single);
+      }
       canvas.restore();
     }
+  }
+
+  // ---- closed figure (Formen) --------------------------------------------
+
+  void _drawShape(Canvas canvas, PlotGeom g) {
+    final pts = shape!;
+    if (pts.length < 2) return;
+    canvas.save();
+    canvas.clipRect(Rect.fromLTRB(g.left, g.top, g.right, g.bottom));
+    final stroke = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.6
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..color = shapeColor;
+    Offset proj(Offset d) =>
+        Offset(g.xToPx(d.dx * shapePulse), g.yToPy(d.dy * shapePulse));
+
+    if (shapeTrace >= 1.0) {
+      // Full figure: filled outline.
+      final path = Path()..moveTo(proj(pts.first).dx, proj(pts.first).dy);
+      for (final d in pts.skip(1)) {
+        final p = proj(d);
+        path.lineTo(p.dx, p.dy);
+      }
+      path.close();
+      canvas.drawPath(
+        path,
+        Paint()
+          ..style = PaintingStyle.fill
+          ..color = shapeColor.withValues(alpha: 0.14),
+      );
+      canvas.drawPath(path, stroke);
+    } else {
+      // Tracing: draw the first fraction of the outline with a leading dot.
+      final count = (pts.length * shapeTrace).clamp(1, pts.length).toInt();
+      if (count >= 2) {
+        final path = Path()..moveTo(proj(pts.first).dx, proj(pts.first).dy);
+        for (var i = 1; i < count; i++) {
+          final p = proj(pts[i]);
+          path.lineTo(p.dx, p.dy);
+        }
+        canvas.drawPath(path, stroke);
+        final tip = proj(pts[count - 1]);
+        canvas.drawCircle(
+            tip, 12, Paint()..color = shapeColor.withValues(alpha: 0.22));
+        canvas.drawCircle(tip, 5.5, Paint()..color = shapeColor);
+      }
+    }
+    canvas.restore();
   }
 
   // ---- grid + axis labels (dozenal ticks) --------------------------------
@@ -164,16 +237,22 @@ class PlotPainter extends CustomPainter {
 
   // ---- curve + growth sweep ----------------------------------------------
 
-  void _drawCurve(Canvas canvas, PlotGeom g) {
+  void _drawCurve(
+    Canvas canvas,
+    PlotGeom g,
+    double Function(double) f,
+    Color color, {
+    required bool fill,
+  }) {
     final stroke = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.4
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
-      ..color = scheme.primary;
-    final fill = Paint()
+      ..color = color;
+    final fillPaint = Paint()
       ..style = PaintingStyle.fill
-      ..color = scheme.primary.withValues(alpha: 0.16);
+      ..color = color.withValues(alpha: 0.16);
 
     final xEnd = math.min(view.xMax, sweepX);
     if (xEnd <= view.xMin) return;
@@ -189,14 +268,16 @@ class PlotPainter extends CustomPainter {
         runStroke = [];
         return;
       }
-      final fillPath = Path()..moveTo(runStroke.first.dx, y0Px);
-      for (final p in runStroke) {
-        fillPath.lineTo(p.dx, p.dy);
+      if (fill) {
+        final fillPath = Path()..moveTo(runStroke.first.dx, y0Px);
+        for (final p in runStroke) {
+          fillPath.lineTo(p.dx, p.dy);
+        }
+        fillPath
+          ..lineTo(runStroke.last.dx, y0Px)
+          ..close();
+        canvas.drawPath(fillPath, fillPaint);
       }
-      fillPath
-        ..lineTo(runStroke.last.dx, y0Px)
-        ..close();
-      canvas.drawPath(fillPath, fill);
       final line = Path()..moveTo(runStroke.first.dx, runStroke.first.dy);
       for (final p in runStroke.skip(1)) {
         line.lineTo(p.dx, p.dy);
@@ -223,13 +304,13 @@ class PlotPainter extends CustomPainter {
     }
     flushRun();
 
-    // Growth-front marker at the sweep tip.
-    if (sweepX < view.xMax) {
+    // Growth-front marker at the sweep tip (single-curve grow only).
+    if (fill && sweepX < view.xMax) {
       final yTip = f(xEnd);
       if (yTip.isFinite) {
         final tip = Offset(g.xToPx(xEnd), g.yToPy(yTip));
-        canvas.drawCircle(tip, 12, Paint()..color = scheme.primary.withValues(alpha: 0.22));
-        canvas.drawCircle(tip, 5.5, Paint()..color = scheme.primary);
+        canvas.drawCircle(tip, 12, Paint()..color = color.withValues(alpha: 0.22));
+        canvas.drawCircle(tip, 5.5, Paint()..color = color);
       }
     }
   }

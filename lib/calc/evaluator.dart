@@ -56,7 +56,8 @@ enum BinOp {
   mul('×'),
   div('÷'),
   mod('mod'),
-  pow('^');
+  pow('^'),
+  par('⊕'); // parallel addition: a⊕b = a·b/(a+b)
 
   const BinOp(this.symbol);
   final String symbol;
@@ -307,6 +308,8 @@ Rational? _exact(_Node n) {
           return l.mul(r);
         case BinOp.div:
           return l.div(r); // null on ÷0 → f64 reports DIV BY ZERO
+        case BinOp.par:
+          return l.mul(r).div(l.add(r)); // a⊕b = a·b/(a+b); null on a+b=0
         case BinOp.mod:
           if (!l.isInteger || !r.isInteger || r.isZero) return null;
           return Rational.fromBig(l.num % r.num);
@@ -363,6 +366,7 @@ double _f64(_Node n, AngleMode mode, double x) {
         BinOp.sub => l - r,
         BinOp.mul => l * r,
         BinOp.div => l / r,
+        BinOp.par => (l * r) / (l + r),
         BinOp.mod => l % r,
         BinOp.pow => math.pow(l, r).toDouble(),
       };
@@ -497,7 +501,10 @@ class _Parser {
     while (true) {
       final t = _peek;
       if (t is OpTok &&
-          (t.op == BinOp.mul || t.op == BinOp.div || t.op == BinOp.mod)) {
+          (t.op == BinOp.mul ||
+              t.op == BinOp.div ||
+              t.op == BinOp.par ||
+              t.op == BinOp.mod)) {
         _advance();
         acc = _Bin(t.op, acc, _unary());
       } else if (_startsFactor(t)) {

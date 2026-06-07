@@ -55,12 +55,14 @@ class _BidozenalPageState extends State<BidozenalPage> {
   /// three-part error guard.
   String? _errorMsg;
 
-  bool _glyphMode = true;
-
   /// Active number base: 10 (Dezimal), 12 (Dozenal) or 24 (Bidozenal). One
   /// calculator outwardly; behind it three bases. Changing it clears the
   /// expression (digit sequences are base-dependent).
   int _base = 24;
+
+  /// Conventional digits in decimal, custom glyphs in dozenal/bidozenal —
+  /// driven by the base (no manual toggle).
+  bool get _glyphMode => _base != 10;
 
   AngleMode _angleMode = AngleMode.deg;
 
@@ -326,7 +328,11 @@ class _BidozenalPageState extends State<BidozenalPage> {
           children: [
             SizedBox(
               width: glyphW,
-              child: BidozenalGlyphPad(onKey: _onKey, base: _base),
+              child: BidozenalGlyphPad(
+                onKey: _onKey,
+                base: _base,
+                glyphMode: _glyphMode,
+              ),
             ),
             const VerticalDivider(width: 1, color: Color(0xFF333333)),
             Expanded(
@@ -366,17 +372,6 @@ class _BidozenalPageState extends State<BidozenalPage> {
       padding: const EdgeInsets.all(16),
       child: ListView(
         children: [
-          Text('Anzeige', style: theme.textTheme.labelMedium),
-          const SizedBox(height: 8),
-          SegmentedButton<bool>(
-            segments: const [
-              ButtonSegment(value: true, label: Text('Glyphen')),
-              ButtonSegment(value: false, label: Text('0-9 A-N')),
-            ],
-            selected: {_glyphMode},
-            onSelectionChanged: (s) => setState(() => _glyphMode = s.first),
-          ),
-          const SizedBox(height: 20),
           Text('Zahlensystem', style: theme.textTheme.labelMedium),
           const SizedBox(height: 8),
           SegmentedButton<int>(

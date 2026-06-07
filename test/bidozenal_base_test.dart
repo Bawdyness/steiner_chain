@@ -67,7 +67,7 @@ void main() {
           body: SizedBox(
             width: 300,
             height: 600,
-            child: BidozenalGlyphPad(base: 10, onKey: onKey),
+            child: BidozenalGlyphPad(base: 10, glyphMode: true, onKey: onKey),
           ),
         ),
       ));

@@ -22,13 +22,21 @@ import 'package:geometrie_spielzeug/calc/keypad.dart';
 // ===========================================================================
 
 class BidozenalGlyphPad extends StatelessWidget {
-  const BidozenalGlyphPad({super.key, required this.onKey, required this.base});
+  const BidozenalGlyphPad({
+    super.key,
+    required this.onKey,
+    required this.base,
+    required this.glyphMode,
+  });
 
   final void Function(KeypadEvent) onKey;
 
-  /// Active number base (10/12/24). All 24 glyphs are always rendered; digits
+  /// Active number base (10/12/24). All 24 cells are always rendered; digits
   /// with value >= [base] are greyed out and non-tappable.
   final int base;
+
+  /// Custom glyphs (dozenal/bidozenal) vs conventional digits (decimal).
+  final bool glyphMode;
 
   static const int _rows = 8;
   static const int _cols = 3;
@@ -60,6 +68,7 @@ class BidozenalGlyphPad extends StatelessWidget {
     return _DigitKey(
       value: v,
       active: active,
+      glyphMode: glyphMode,
       onTap: active ? () => onKey(InsertTok(DigitTok(v))) : null,
     );
   }
@@ -232,6 +241,7 @@ class _DigitKey extends StatelessWidget {
   const _DigitKey({
     required this.value,
     required this.active,
+    required this.glyphMode,
     required this.onTap,
   });
 
@@ -239,21 +249,45 @@ class _DigitKey extends StatelessWidget {
 
   /// False when [value] >= the active base: greyed out, [onTap] null.
   final bool active;
+
+  /// Glyph rendering (dozenal/bidozenal) vs conventional digit text (decimal).
+  final bool glyphMode;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final glyphColor = active
+    final color = active
         ? scheme.onSurface
         : scheme.onSurfaceVariant.withValues(alpha: 0.26);
+    final fill = active
+        ? null
+        : scheme.surfaceContainerHighest.withValues(alpha: 0.12);
+
+    if (!glyphMode) {
+      // Decimal: conventional digit, no glyph.
+      return CalcKey(
+        onTap: onTap,
+        fill: fill,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            bidozenalChar(value),
+            style: TextStyle(
+              color: color,
+              fontSize: 26,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      );
+    }
+
     final cornerColor =
         scheme.onSurfaceVariant.withValues(alpha: active ? 0.55 : 0.22);
     return CalcKey(
       onTap: onTap,
-      fill: active
-          ? null
-          : scheme.surfaceContainerHighest.withValues(alpha: 0.12),
+      fill: fill,
       child: LayoutBuilder(
         builder: (context, c) {
           final glyphSize = c.biggest.shortestSide * 0.66;
@@ -275,7 +309,7 @@ class _DigitKey extends StatelessWidget {
                 child: BidozenalGlyph(
                   value: value,
                   size: glyphSize,
-                  color: glyphColor,
+                  color: color,
                 ),
               ),
             ],

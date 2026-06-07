@@ -6,6 +6,7 @@ import 'package:flutter_math_fork/flutter_math.dart';
 import '../scaffold/tool_scaffold.dart';
 import 'package:geometrie_spielzeug/calc/digits.dart';
 import 'package:geometrie_spielzeug/calc/evaluator.dart';
+import 'package:geometrie_spielzeug/calc/keypad.dart';
 import 'package:geometrie_spielzeug/calc/rational.dart';
 import 'wachstum/painter.dart';
 import 'wachstum/tile.dart';
@@ -41,6 +42,12 @@ class _WachstumPageState extends State<WachstumPage>
     WachstumTile(op: BinOp.add, value: Rational.fromInt(5)),
   ];
 
+  // Permanent left-column calculator: which target the keypad edits
+  // (-1 = y₀, else tile index) + the cursor-based exact expression buffer.
+  int _editIndex = -1;
+  List<Tok> _input = const [];
+  int _cursor = 0;
+
   double _currentT = 0;
   double _targetT = 0;
   _PlayMode _mode = _PlayMode.idle;
@@ -54,6 +61,7 @@ class _WachstumPageState extends State<WachstumPage>
     super.initState();
     _hzController = TextEditingController(text: '1');
     _ticker = createTicker(_onTick)..start();
+    _loadBuffer(); // start by editing y₀
   }
 
   @override
@@ -149,54 +157,170 @@ class _WachstumPageState extends State<WachstumPage>
   }
 
   // ---------------------------------------------------------------------
-  // Kachel-Bearbeitung (Mini-Rechner statt TextField)
+  // Permanenter Mini-Rechner (linke Spalte) — bearbeitet das gewählte Ziel
+  // (y₀ oder eine Kachel) live. Nur exakt-erhaltende Tasten ⇒ Wert bleibt
+  // ein exakter Rational; Trig/Log/√/Konstanten gibt es hier bewusst nicht.
   // ---------------------------------------------------------------------
-  Future<void> _editY0() async {
-    final result = await showModalBottomSheet<_CalcEditResult>(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) => _CalcEditSheet(
-        title: 'Startwert y₀',
-        base: _base,
-        initialValue: _y0,
-      ),
-    );
-    if (result != null) setState(() => _y0 = result.value);
+
+  /// Selects the keypad's edit target (-1 = y₀, else tile index) and loads its
+  /// value into the buffer.
+  void _select(int index) => setState(() {
+        _editIndex = index;
+        _loadBuffer();
+      });
+
+  void _loadBuffer() {
+    final value = _editIndex < 0 ? _y0 : _tiles[_editIndex].value;
+    _input = _tokensFromRational(value, _base);
+    _cursor = _input.length;
   }
 
-  Future<void> _editTile(int index) async {
-    final tile = _tiles[index];
-    final result = await showModalBottomSheet<_CalcEditResult>(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) => _CalcEditSheet(
-        title: 'Kachel ${index + 1}',
-        base: _base,
-        showOp: true,
-        initialOp: tile.op,
-        initialValue: tile.value,
-        canDelete: true,
-      ),
-    );
-    if (result == null) return;
+  /// Exact value of the current expression, or null (incomplete / not exact).
+  Rational? get _editValue => evaluate(_input, AngleMode.rad, base: _base).exact;
+
+  /// Writes the current exact value to the selected target. Incomplete or
+  /// non-exact input leaves the target at its last value.
+  void _applyToTarget() {
+    final v = _editValue;
+    if (v == null) return;
+    if (_editIndex < 0) {
+      _y0 = v;
+    } else if (_editIndex < _tiles.length) {
+      final tile = _tiles[_editIndex];
+      if (tile.op == BinOp.div && v.isZero) return; // a ÷0 tile is forbidden
+      _tiles = List.of(_tiles)..[_editIndex] = tile.copyWith(value: v);
+    }
+  }
+
+  void _setOp(BinOp op) {
+    if (_editIndex < 0) return;
     setState(() {
-      if (result.delete) {
-        _tiles = List.of(_tiles)..removeAt(index);
-        _currentT = math.min(_currentT, _tiles.length.toDouble());
-        _targetT = math.min(_targetT, _tiles.length.toDouble());
-      } else {
+      final tile = _tiles[_editIndex];
+      if (op == BinOp.div && tile.value.isZero) return; // can't ÷0
+      _tiles = List.of(_tiles)..[_editIndex] = tile.copyWith(op: op);
+    });
+  }
+
+  void _addTile() => setState(() {
         _tiles = List.of(_tiles)
-          ..[index] = WachstumTile(op: result.op!, value: result.value);
+          ..add(WachstumTile(op: BinOp.add, value: Rational.one));
+        _editIndex = _tiles.length - 1;
+        _loadBuffer();
+      });
+
+  void _deleteTile() {
+    if (_editIndex < 0) return;
+    setState(() {
+      _tiles = List.of(_tiles)..removeAt(_editIndex);
+      _currentT = math.min(_currentT, _tiles.length.toDouble());
+      _targetT = math.min(_targetT, _tiles.length.toDouble());
+      if (_editIndex >= _tiles.length) {
+        _editIndex = _tiles.isEmpty ? -1 : _tiles.length - 1;
       }
+      _loadBuffer();
     });
   }
 
-  void _addTile() {
+  // ---- buffer editing (cursor-based, like Kurve; writes through live) ----
+  void _insert(Tok t) {
+    if (t is DotTok && _hasDotInCurrentLiteral()) return;
     setState(() {
-      _tiles = List.of(_tiles)
-        ..add(WachstumTile(op: BinOp.add, value: Rational.one));
+      _input = [..._input.sublist(0, _cursor), t, ..._input.sublist(_cursor)];
+      _cursor++;
+      _applyToTarget();
     });
   }
+
+  void _delete() => setState(() {
+        if (_cursor > 0) {
+          _input = [..._input]..removeAt(_cursor - 1);
+          _cursor--;
+          _applyToTarget();
+        }
+      });
+
+  void _clearInput() => setState(() {
+        _input = const [];
+        _cursor = 0;
+      });
+
+  void _move(int delta) =>
+      setState(() => _cursor = (_cursor + delta).clamp(0, _input.length));
+
+  /// Bidirectional walk through the number literal at the cursor — true if it
+  /// already holds a decimal point (blocks `1.2.3`).
+  bool _hasDotInCurrentLiteral() {
+    for (var i = _cursor - 1; i >= 0; i--) {
+      final t = _input[i];
+      if (t is DotTok) return true;
+      if (t is! DigitTok) break;
+    }
+    for (var i = _cursor; i < _input.length; i++) {
+      final t = _input[i];
+      if (t is DotTok) return true;
+      if (t is! DigitTok) break;
+    }
+    return false;
+  }
+
+  static List<Tok> _tokensFromRational(Rational v, int base) {
+    final e = v.expand(base: base);
+    final neg = v.isNegative && !v.isZero;
+    if (e.period.isNotEmpty) return neg ? [const OpTok(BinOp.sub)] : const [];
+    return [
+      if (neg) const OpTok(BinOp.sub),
+      for (final d in e.intDigits) DigitTok(d),
+      if (e.preDigits.isNotEmpty) const DotTok(),
+      for (final d in e.preDigits) DigitTok(d),
+    ];
+  }
+
+  String _inputString() {
+    final sb = StringBuffer();
+    for (var i = 0; i <= _input.length; i++) {
+      if (i == _cursor) sb.write('▏');
+      if (i < _input.length) sb.write(_tokLabel(_input[i]));
+    }
+    return sb.toString();
+  }
+
+  String _tokLabel(Tok t) => switch (t) {
+        DigitTok d => bidozenalChar(d.value),
+        DotTok() => '.',
+        OpTok o => ' ${o.op.symbol} ',
+        LParenTok() => '(',
+        RParenTok() => ')',
+        FuncTok f => f.id == FuncId.fact
+            ? '!'
+            : (f.id.isPrefix ? '${f.id.label} ' : f.id.label),
+        VarTok() => 'x',
+        ConstTok c => c.id.label,
+        RatLitTok r => r.label,
+      };
+
+  // ---- key builders (shared CalcKey chrome; digits via GlyphDigitPad) ----
+  Widget _key(String label, VoidCallback onTap, ColorScheme scheme,
+          {Color? color}) =>
+      CalcKey(
+        onTap: onTap,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            label,
+            style: TextStyle(
+              color: color ?? scheme.onSurfaceVariant,
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      );
+
+  Widget _opKey(BinOp o, ColorScheme scheme) =>
+      _key(o.symbol, () => _insert(OpTok(o)), scheme, color: scheme.primary);
+
+  Widget _funcKey(FuncId id, String label, ColorScheme scheme) =>
+      _key(label, () => _insert(FuncTok(id)), scheme);
 
   // ---------------------------------------------------------------------
   // Build
@@ -265,7 +389,14 @@ class _WachstumPageState extends State<WachstumPage>
     }
 
     widgets.add(positioned(
-        -1, _Y0TileWidget(value: _y0, base: _base, onTap: _editY0)));
+      -1,
+      _Y0TileWidget(
+        value: _y0,
+        base: _base,
+        selected: _editIndex == -1,
+        onTap: () => _select(-1),
+      ),
+    ));
     for (var i = 0; i < _tiles.length; i++) {
       final isActive = i == passedIndex - 1 ||
           (i == passedIndex && _currentT > passedIndex);
@@ -275,7 +406,8 @@ class _WachstumPageState extends State<WachstumPage>
           tile: _tiles[i],
           base: _base,
           active: isActive,
-          onTap: () => _editTile(i),
+          selected: _editIndex == i,
+          onTap: () => _select(i),
         ),
       ));
     }
@@ -288,9 +420,11 @@ class _WachstumPageState extends State<WachstumPage>
 
   Widget _buildControls() {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final ys = checkpointValues(_y0, _tiles);
     final ysD = ys.map((r) => r.toDouble()).toList();
     final currentValue = _currentValue(ysD);
+    final editingTile = _editIndex >= 0;
 
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -305,16 +439,91 @@ class _WachstumPageState extends State<WachstumPage>
               ButtonSegment(value: 24, label: Text('Bidoz 24')),
             ],
             selected: {_base},
-            onSelectionChanged: (s) => setState(() => _base = s.first),
+            onSelectionChanged: (s) => setState(() {
+              _base = s.first;
+              _loadBuffer(); // re-tokenize the current target in the new base
+            }),
             showSelectedIcon: false,
           ),
+          const SizedBox(height: 16),
+
+          // ---- permanent editor for the selected tile / y₀ ----
+          Row(
+            children: [
+              Text('Bearbeiten: ', style: theme.textTheme.labelMedium),
+              Text(
+                editingTile ? 'Kachel ${_editIndex + 1}' : 'Startwert y₀',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: scheme.tertiary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const Spacer(),
+              if (editingTile)
+                IconButton(
+                  tooltip: 'Kachel entfernen',
+                  icon: Icon(Icons.delete_outline, color: scheme.error),
+                  visualDensity: VisualDensity.compact,
+                  onPressed: _deleteTile,
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (editingTile) ...[
+            SegmentedButton<BinOp>(
+              segments: const [
+                ButtonSegment(value: BinOp.add, label: Text('+')),
+                ButtonSegment(value: BinOp.sub, label: Text('−')),
+                ButtonSegment(value: BinOp.mul, label: Text('×')),
+                ButtonSegment(value: BinOp.div, label: Text('÷')),
+              ],
+              selected: {_tiles[_editIndex].op},
+              onSelectionChanged: (s) => _setOp(s.first),
+              showSelectedIcon: false,
+            ),
+            const SizedBox(height: 8),
+          ],
+          _editDisplay(scheme),
+          const SizedBox(height: 8),
+          GlyphDigitPad(
+            base: _base,
+            onDigit: (d) => _insert(DigitTok(d)),
+            rowHeight: 48,
+          ),
+          _KeyRow(children: [
+            _key('(', () => _insert(const LParenTok()), scheme),
+            _key(')', () => _insert(const RParenTok()), scheme),
+            _opKey(BinOp.pow, scheme),
+            _opKey(BinOp.mod, scheme),
+          ]),
+          _KeyRow(children: [
+            _funcKey(FuncId.fact, 'n!', scheme),
+            _funcKey(FuncId.abs, '|x|', scheme),
+            _funcKey(FuncId.recip, '1/x', scheme),
+            _key('.', () => _insert(const DotTok()), scheme),
+          ]),
+          _KeyRow(children: [
+            _opKey(BinOp.add, scheme),
+            _opKey(BinOp.sub, scheme),
+            _opKey(BinOp.mul, scheme),
+            _opKey(BinOp.div, scheme),
+          ]),
+          _KeyRow(children: [
+            _key('◀', () => _move(-1), scheme),
+            _key('▶', () => _move(1), scheme),
+            _key('⌫', _delete, scheme),
+            _key('AC', _clearInput, scheme, color: scheme.error),
+          ]),
+
+          const SizedBox(height: 20),
+          const Divider(),
           const SizedBox(height: 16),
           Text('Aktueller Wert', style: theme.textTheme.labelMedium),
           const SizedBox(height: 4),
           Text(
             _fmtDoubleBase(currentValue, _base),
-            style: theme.textTheme.displaySmall?.copyWith(
-              color: theme.colorScheme.primary,
+            style: theme.textTheme.headlineMedium?.copyWith(
+              color: scheme.primary,
               fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
@@ -328,22 +537,66 @@ class _WachstumPageState extends State<WachstumPage>
               textStyle: const TextStyle(fontSize: 18),
               onErrorFallback: (err) => Text(
                 'LaTeX-Fehler: ${err.message}',
-                style: TextStyle(color: theme.colorScheme.error),
+                style: TextStyle(color: scheme.error),
               ),
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
           const Divider(),
           const SizedBox(height: 16),
           _buildTempoControls(theme),
           const SizedBox(height: 24),
           Text(
-            'Tippe auf eine Kachel, um Operator und Zahl im gewählten '
-            'Zahlensystem (über das Rechner-Keypad) zu setzen — exakt gerechnet. '
-            'Bei Hz=1 spielt eine Kachel pro Sekunde; Hz=0 schaltet auf '
-            'Handbetrieb (Play schiebt eine Kachel weiter).',
+            'Tippe eine Kachel (oder y₀) an, um sie zu wählen; ihr Wert wird '
+            'live über das Keypad eingegeben — exakt gerechnet. „+" fügt eine '
+            'Kachel an. Bei Hz=1 spielt eine Kachel pro Sekunde; Hz=0 schaltet '
+            'auf Handbetrieb (Play schiebt eine Kachel weiter).',
             style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Two-line edit display: the live expression (with cursor) over its value.
+  Widget _editDisplay(ColorScheme scheme) {
+    final v = _editValue;
+    final valueStr =
+        _input.isEmpty ? '' : (v == null ? '—' : renderInBase(v, _base));
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF101010),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFF333333)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            _inputString(),
+            textAlign: TextAlign.right,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 22,
+              color: scheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            valueStr.isEmpty ? ' ' : '= $valueStr',
+            textAlign: TextAlign.right,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 15,
+              color: scheme.primary,
             ),
           ),
         ],
@@ -478,9 +731,15 @@ String _numberInBase(Rational v, int base) => renderInBase(v, base);
 // =====================================================================
 
 class _Y0TileWidget extends StatelessWidget {
-  const _Y0TileWidget({required this.value, required this.base, required this.onTap});
+  const _Y0TileWidget({
+    required this.value,
+    required this.base,
+    required this.selected,
+    required this.onTap,
+  });
   final Rational value;
   final int base;
+  final bool selected;
   final VoidCallback onTap;
 
   @override
@@ -488,7 +747,8 @@ class _Y0TileWidget extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return _TileBox(
       onTap: onTap,
-      borderColor: scheme.outlineVariant,
+      borderColor: selected ? scheme.tertiary : scheme.outlineVariant,
+      borderWidth: selected ? 2.0 : 1.0,
       backgroundColor: scheme.surface,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -523,11 +783,17 @@ class _OpTileWidget extends StatelessWidget {
     required this.tile,
     required this.base,
     required this.active,
+    required this.selected,
     required this.onTap,
   });
   final WachstumTile tile;
   final int base;
+
+  /// Playback highlight (the marker has passed this tile).
   final bool active;
+
+  /// Edit-target highlight (the keypad is editing this tile).
+  final bool selected;
   final VoidCallback onTap;
 
   @override
@@ -535,8 +801,10 @@ class _OpTileWidget extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return _TileBox(
       onTap: onTap,
-      borderColor: active ? scheme.primary : scheme.outlineVariant,
-      borderWidth: active ? 1.6 : 1.0,
+      borderColor: selected
+          ? scheme.tertiary
+          : (active ? scheme.primary : scheme.outlineVariant),
+      borderWidth: selected ? 2.0 : (active ? 1.6 : 1.0),
       backgroundColor: active
           ? scheme.primary.withValues(alpha: 0.16)
           : scheme.surfaceContainerHighest,
@@ -709,201 +977,8 @@ class _DottedBorderPainter extends CustomPainter {
 }
 
 // =====================================================================
-// Mini-Rechner zum Bearbeiten (basis-bewusst, exakt → Rational)
+// Keypad-Zeile (geteiltes CalcKey-Chrome)
 // =====================================================================
-
-class _CalcEditResult {
-  _CalcEditResult({this.op, required this.value, this.delete = false});
-  final BinOp? op;
-  final Rational value;
-  final bool delete;
-}
-
-class _CalcEditSheet extends StatefulWidget {
-  const _CalcEditSheet({
-    required this.title,
-    required this.base,
-    required this.initialValue,
-    this.showOp = false,
-    this.initialOp = BinOp.add,
-    this.canDelete = false,
-  });
-  final String title;
-  final int base;
-  final Rational initialValue;
-  final bool showOp;
-  final BinOp initialOp;
-  final bool canDelete;
-
-  @override
-  State<_CalcEditSheet> createState() => _CalcEditSheetState();
-}
-
-class _CalcEditSheetState extends State<_CalcEditSheet> {
-  late BinOp _op;
-  late bool _neg;
-  late List<Tok> _digits; // DigitTok / DotTok only
-
-  @override
-  void initState() {
-    super.initState();
-    _op = widget.initialOp;
-    _neg = widget.initialValue.isNegative && !widget.initialValue.isZero;
-    _digits = _digitsFromRational(widget.initialValue, widget.base);
-  }
-
-  static List<Tok> _digitsFromRational(Rational v, int base) {
-    final e = v.expand(base: base);
-    if (e.period.isNotEmpty) return []; // non-terminating → start fresh
-    final out = <Tok>[for (final d in e.intDigits) DigitTok(d)];
-    if (e.preDigits.isNotEmpty) {
-      out.add(const DotTok());
-      out.addAll([for (final d in e.preDigits) DigitTok(d)]);
-    }
-    return out;
-  }
-
-  Rational? get _value {
-    final toks = <Tok>[if (_neg) const OpTok(BinOp.sub), ..._digits];
-    return evaluate(toks, AngleMode.rad, base: widget.base).exact;
-  }
-
-  bool get _hasDot => _digits.any((t) => t is DotTok);
-
-  String get _preview {
-    final v = _value;
-    if (_digits.isEmpty) return '—';
-    return v == null ? '—' : renderInBase(v, widget.base);
-  }
-
-  bool get _valid {
-    final v = _value;
-    if (v == null) return false;
-    if (widget.showOp && _op == BinOp.div && v.isZero) return false;
-    return true;
-  }
-
-  void _insertDigit(int d) => setState(() => _digits = [..._digits, DigitTok(d)]);
-  void _insertDot() {
-    if (_hasDot) return;
-    setState(() => _digits = [..._digits, const DotTok()]);
-  }
-
-  void _backspace() => setState(() {
-        if (_digits.isNotEmpty) _digits = _digits.sublist(0, _digits.length - 1);
-      });
-  void _clear() => setState(() {
-        _digits = [];
-        _neg = false;
-      });
-
-  void _confirm() {
-    final v = _value;
-    if (v == null) {
-      _snack('Bitte eine Zahl eingeben.');
-      return;
-    }
-    if (widget.showOp && _op == BinOp.div && v.isZero) {
-      _snack('Teilen durch 0 ist nicht erlaubt.');
-      return;
-    }
-    Navigator.of(context).pop(_CalcEditResult(op: _op, value: v));
-  }
-
-  void _snack(String m) => ScaffoldMessenger.of(context)
-      .showSnackBar(SnackBar(content: Text(m)));
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final inset = MediaQuery.of(context).viewInsets.bottom;
-    final digitCount = widget.base;
-    final rows = <List<int>>[];
-    for (var i = 0; i < digitCount; i += 6) {
-      rows.add([for (var d = i; d < math.min(i + 6, digitCount); d++) d]);
-    }
-
-    return Padding(
-      padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + inset),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(widget.title, style: theme.textTheme.titleMedium),
-          const SizedBox(height: 12),
-          if (widget.showOp) ...[
-            SegmentedButton<BinOp>(
-              segments: const [
-                ButtonSegment(value: BinOp.add, label: Text('+')),
-                ButtonSegment(value: BinOp.sub, label: Text('−')),
-                ButtonSegment(value: BinOp.mul, label: Text('×')),
-                ButtonSegment(value: BinOp.div, label: Text('÷')),
-              ],
-              selected: {_op},
-              onSelectionChanged: (s) => setState(() => _op = s.first),
-              showSelectedIcon: false,
-            ),
-            const SizedBox(height: 12),
-          ],
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: const Color(0xFF101010),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFF333333)),
-            ),
-            child: Text(
-              '${_neg && _digits.isEmpty ? '−' : ''}$_preview',
-              textAlign: TextAlign.right,
-              style: TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 26,
-                color: scheme.primary,
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          for (final row in rows)
-            _KeyRow(children: [
-              for (final d in row)
-                _CalcKey(label: bidozenalChar(d), onTap: () => _insertDigit(d)),
-            ]),
-          _KeyRow(children: [
-            _CalcKey(label: '.', onTap: _insertDot),
-            _CalcKey(label: '±', onTap: () => setState(() => _neg = !_neg)),
-            _CalcKey(label: '⌫', onTap: _backspace),
-            _CalcKey(label: 'AC', onTap: _clear, color: scheme.error),
-          ]),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              if (widget.canDelete)
-                TextButton.icon(
-                  onPressed: () => Navigator.of(context)
-                      .pop(_CalcEditResult(op: _op, value: Rational.zero, delete: true)),
-                  icon: const Icon(Icons.delete_outline),
-                  label: const Text('Entfernen'),
-                  style: TextButton.styleFrom(foregroundColor: scheme.error),
-                ),
-              const Spacer(),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Abbrechen'),
-              ),
-              const SizedBox(width: 8),
-              FilledButton(
-                onPressed: _valid ? _confirm : null,
-                child: const Text('Fertig'),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _KeyRow extends StatelessWidget {
   const _KeyRow({required this.children});
@@ -915,35 +990,3 @@ class _KeyRow extends StatelessWidget {
       );
 }
 
-class _CalcKey extends StatelessWidget {
-  const _CalcKey({required this.label, required this.onTap, this.color});
-  final String label;
-  final VoidCallback onTap;
-  final Color? color;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.all(3),
-      child: Material(
-        color: scheme.surfaceContainerHighest.withValues(alpha: 0.35),
-        borderRadius: BorderRadius.circular(9),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Center(
-            child: Text(
-              label,
-              style: TextStyle(
-                color: color ?? scheme.onSurface,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
